@@ -8,7 +8,7 @@ A ROS driver for [DJI Tello](https://store.dji.com/product/tello) drones.
 
 Set up a Ubuntu 16.04 box or VM. This should include ffmpeg 2.8.15-0.
 ~~~
-ffmpeg --version
+ffmpeg -version
 ~~~
 
 ### 2. Set up your Python environment
@@ -34,7 +34,7 @@ Create a catkin workspace:
 source /opt/ros/kinetic/setup.bash
 mkdir -p ~/flock_catkin_ws/src
 cd ~/flock_catkin_ws/
-flock_catkin_ws
+catkin_make
 source devel/setup.bash
 ~~~
 
