@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <package format="2">
 
-  <name>flock</name>
+  <name>flock_driver</name>
   <version>0.1.0</version>
-  <description>ROS driver for Tello drones</description>
+  <description>Flock driver</description>
 
   <maintainer email="clyde@mcqueen.net">Clyde McQueen</maintainer>
   <license>BSD</license>
@@ -16,11 +16,7 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
-  <exec_depend>flock_base</exec_depend>
-  <exec_depend>flock_driver</exec_depend>
-  <exec_depend>flock_msgs</exec_depend>
+  <depend>geometry_msgs</depend>
+  <depend>rospy</depend>
 
-  <export>
-    <metapackage/>
-  </export>
 </package>

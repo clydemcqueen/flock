@@ -1,6 +1,43 @@
 # Flock
 
-A ROS driver for [DJI Tello](https://store.dji.com/product/tello) drones.
+Flock is a ROS driver for [DJI Tello](https://store.dji.com/product/tello) drones.
+
+## Packages
+
+* `flock` meta-package glue
+* `flock_description` robot description files (TODO)
+* `flock_driver` interface between the Tello hardware and ROS, not required for simulation
+* `flock_base` base nodes
+* `flock_rviz` extensions to rviz (TODO)
+* `flock_gazebo` extensions to Gazebo (TODO)
+
+## Nodes
+
+### flock_driver
+
+Provides a ROS wrapper around TelloPy. Not required for simulation.
+
+#### Subscribed topics
+
+* `~cmd_vel` [geometry_msgs/Twist](http://docs.ros.org/api/geometry_msgs/html/msg/Twist.html)
+* `~takeoff` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `~land` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `~flip` flock_msgs/Flip
+
+### flock_base
+
+Provides teleop and (eventually) autonomous control.
+
+#### Subscribed topics
+
+* `~joy` [sensor_msgs/Joy](http://docs.ros.org/api/sensor_msgs/html/msg/Joy.html)
+
+#### Published topics
+
+* `~cmd_vel` [geometry_msgs/Twist](http://docs.ros.org/api/geometry_msgs/html/msg/Twist.html)
+* `~takeoff` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `~land` [std_msgs/Empty](http://docs.ros.org/api/std_msgs/html/msg/Empty.html)
+* `~flip` flock_msgs/Flip
 
 ## Installation
 
@@ -15,12 +52,12 @@ ffmpeg -version
 
 Use your favorite Python package manager to set up Python 2.7 and the following packages:
 
-* numpy 1.11.0
+* numpy 1.11.0 or newer
 * av 0.4.1 (note: newer versions may require a newer ffmpeg library)
 * opencv-python 3.4.3.18
 * opencv-contrib-python 3.4.3.18
 * image 1.5.25
-* tellopy 0.5.0 -- this is the stable version available via PyPI / pip install
+* tellopy 0.5.0 -- this is the latest stable version available via PyPI / pip install
 
 ### 3. Install ROS
 
@@ -46,22 +83,41 @@ cd ..
 catkin_make
 ~~~
 
-### 5. Test the environment
+## Running Flock
 
-Turn on the drone, connect to it via wi-fi, and test the environment:
+### Test the environment
+
+This script will connect to the drone and display a video feed in an OpenCV window.
+It will also look for ArUco 6x6 markers and highlight them in green.
+It does not require ROS.
+
+Turn on the drone, connect to `TELLO-XXXXX` via wi-fi, and run this script:
 ~~~
 python ~/flock_catkin_ws/src/flock/flock_driver/scripts/environment_test.py
 ~~~
-This script will connect to the drone, display a video feed in an OpenCV window.
-It will also look for ArUco 6x6 markers highlight them in green.
 
-## Design
+### Teleop
 
-Flock provides these packages:
-* `flock` meta-package glue
-* `flock_msgs` message types
-* `flock_description` robot description files
-* `flock_driver` interface between the Tello hardware and ROS, not required for simulation
-* `flock_base` base nodes
-* `flock_rviz` extensions to rviz
-* `flock_gazebo` extensions to Gazebo
+This ROS launch file will allow you to fly the drone using a wired XBox One gamepad.
+
+Turn on the drone, connect to `TELLO-XXXXX` via wi-fi, and launch ROS:
+~~~
+roslaunch flock_base teleop.launch
+~~~
+
+Controls:
+* The left stick controls forward motion and yaw
+* The right stick controls altitude and allows for strafing
+* The small menu button takes off
+* The small view button lands
+* The 4 buttons Y, X, B and A will flip forward, left, right and back, respectively.
+The Tello won't flip if the platform is unstable, so you may have a wait a second or two between flips.
+
+An OpenCV window will pop up to show any 6x6 ArUco markers.
+
+You can modify `teleop.launch` and/or `flock_base.py` to support other gamepads.
+
+WARNING: the `flock_driver` node sends a `land` command just before it quits.
+If you kill the ROS session normally (with a `Ctrl-C`) the drone should land as the ROS session dies.
+However, if the `flock_driver` node dies unexpectedly while the drone is flying
+you may have to re-launch and reconnect to get it to land.
