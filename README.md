@@ -109,6 +109,11 @@ Turn on the drone, connect to `TELLO-XXXXX` via wi-fi, and launch ROS:
 roslaunch flock_base teleop.launch
 ~~~
 
+For left-handed operation:
+~~~
+roslaunch flock_base teleop.launch left_handed:=true
+~~~
+
 Controls:
 * The left stick controls forward motion and yaw
 * The right stick controls altitude and allows for strafing
