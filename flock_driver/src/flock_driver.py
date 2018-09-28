@@ -49,7 +49,7 @@ class FlockDriver(object):
     def cmd_vel_callback(self, msg):
         self._drone.set_pitch(msg.linear.x)
         self._drone.set_roll(-msg.linear.y)
-        self._drone.set_yaw(-msg.angular.z)
+        self._drone.set_yaw(msg.angular.z)
         self._drone.set_throttle(msg.linear.z)
 
     def takeoff_callback(self, msg):
