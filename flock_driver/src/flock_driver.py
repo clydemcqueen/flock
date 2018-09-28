@@ -4,7 +4,7 @@ import threading
 import rospy
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Empty
-from flock_msgs.msg import Flip
+from flock_msgs.msg import Flip, FlightData
 import av
 import cv2
 import numpy
@@ -14,18 +14,22 @@ import tellopy
 class FlockDriver(object):
 
     def __init__(self):
+        # Initialize ROS
+        rospy.init_node('flock_driver_node', anonymous=True)
+        self._flight_data_pub = rospy.Publisher('flight_data', FlightData, queue_size=10)
+        rospy.Subscriber('cmd_vel', Twist, self.cmd_vel_callback)
+        rospy.Subscriber('takeoff', Empty, self.takeoff_callback)
+        rospy.Subscriber('land', Empty, self.land_callback)
+        rospy.Subscriber('flip', Flip, self.flip_callback)
+
         # Connect to the drone
         self._drone = tellopy.Tello()
         self._drone.connect()
         self._drone.wait_for_connection(60.0)
         rospy.loginfo('connected to drone')
 
-        # Initialize ROS
-        rospy.init_node('flock_driver_node', anonymous=True)
-        rospy.Subscriber('cmd_vel', Twist, self.cmd_vel_callback)
-        rospy.Subscriber('takeoff', Empty, self.takeoff_callback)
-        rospy.Subscriber('land', Empty, self.land_callback)
-        rospy.Subscriber('flip', Flip, self.flip_callback)
+        # Listen to flight data messages
+        self._drone.subscribe(self._drone.EVENT_FLIGHT_DATA, self.flight_data_callback)
 
         # Start video thread
         self._stop_request = threading.Event()
@@ -45,6 +49,81 @@ class FlockDriver(object):
         # Shut down the drone
         self._drone.quit()
         self._drone = None
+
+    def flight_data_callback(self, event, sender, data, **args):
+        flight_data = FlightData()
+
+        # Battery state
+        flight_data.battery_percent = data.battery_percentage
+        flight_data.estimated_flight_time_remaining = data.drone_fly_time_left / 10.
+
+        # Flight mode
+        flight_data.flight_mode = data.fly_mode
+
+        # Flight time
+        flight_data.flight_time = data.fly_time
+
+        # Very coarse velocity data
+        # TODO do east and north refer to the body frame?
+        # TODO the / 10. conversion might be wrong, verify
+        flight_data.east_speed = -1. if data.east_speed > 30000 else data.east_speed / 10.
+        flight_data.north_speed = -1. if data.north_speed > 30000 else data.north_speed / 10.
+        flight_data.ground_speed = -1. if data.ground_speed > 30000 else data.ground_speed / 10.
+
+        # Altitude
+        flight_data.altitude = -1. if data.height > 30000 else data.height / 10.
+
+        # Equipment status
+        flight_data.equipment = data.electrical_machinery_state
+        flight_data.high_temperature = data.temperature_height
+
+        # Some state indicators?
+        flight_data.em_ground = data.em_ground
+        flight_data.em_sky = data.em_sky
+        flight_data.em_open = data.em_open
+
+        # Publish what we have
+        self._flight_data_pub.publish(flight_data)
+
+        # Debugging: is there data here? Print nonzero values
+        if data.battery_low:
+            print('battery_low is nonzero: %d' % data.battery_low)
+        if data.battery_lower:
+            print('battery_lower is nonzero: %d' % data.battery_lower)
+        if data.battery_state:
+            print('battery_state is nonzero: %d' % data.battery_state)
+        if data.drone_battery_left:
+            print('drone_battery_left is nonzero: %d' % data.drone_battery_left)
+        if data.camera_state:
+            print('camera_state is nonzero: %d' % data.camera_state)
+        if data.down_visual_state:
+            print('down_visual_state is nonzero: %d' % data.down_visual_state)
+        if data.drone_hover:
+            print('drone_hover is nonzero: %d' % data.drone_hover)
+        if data.factory_mode:
+            print('factory_mode is nonzero: %d' % data.factory_mode)
+        if data.front_in:
+            print('front_in is nonzero: %d' % data.front_in)
+        if data.front_lsc:
+            print('front_lsc is nonzero: %d' % data.front_lsc)
+        if data.front_out:
+            print('front_out is nonzero: %d' % data.front_out)
+        if data.gravity_state:
+            print('gravity_state is nonzero: %d' % data.gravity_state)
+        if data.imu_calibration_state:
+            print('imu_calibration_state is nonzero: %d' % data.imu_calibration_state)
+        if data.imu_state:
+            print('imu_state is nonzero: %d' % data.imu_state)
+        if data.outage_recording:
+            print('outage_recording is nonzero: %d' % data.outage_recording)
+        if data.power_state:
+            print('power_state is nonzero: %d' % data.power_state)
+        if data.pressure_state:
+            print('pressure_state is nonzero: %d' % data.pressure_state)
+        if data.throw_fly_timer:
+            print('throw_fly_timer is nonzero: %d' % data.throw_fly_timer)
+        if data.wind_state:
+            print('wind_state is nonzero: %d' % data.wind_state)
 
     def cmd_vel_callback(self, msg):
         self._drone.set_pitch(msg.linear.x)

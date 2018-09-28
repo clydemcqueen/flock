@@ -16,6 +16,7 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
+  <depend>flock_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>rospy</depend>
 

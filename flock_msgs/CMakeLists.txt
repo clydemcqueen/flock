@@ -8,7 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 ## Generate code for messages we define
-add_message_files(DIRECTORY msg FILES Flip.msg)
+add_message_files(DIRECTORY msg FILES FlightData.msg Flip.msg)
 generate_messages(DEPENDENCIES std_msgs)
 
 ## Declare a catkin package and export dependencies
