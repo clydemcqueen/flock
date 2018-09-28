@@ -3,6 +3,7 @@ project(flock_driver)
 
 ## Find catkin and everything we need in ROS
 find_package(catkin REQUIRED COMPONENTS
+  flock_msgs
   geometry_msgs
   rospy
 )
@@ -10,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## Declare a catkin package and export dependencies
 catkin_package(
   CATKIN_DEPENDS
+  flock_msgs
   geometry_msgs
   rospy
 )
