@@ -43,7 +43,7 @@ Provides teleop and (eventually) autonomous control.
 
 ### 1. Set up your Linux environment
 
-Set up a Ubuntu 16.04 box or VM. This should include ffmpeg 2.8.15-0.
+Set up a Ubuntu 18.04 box or VM. This should include ffmpeg 3.4.4.
 ~~~
 ffmpeg -version
 ~~~
@@ -52,23 +52,27 @@ ffmpeg -version
 
 Use your favorite Python package manager to set up Python 2.7 and the following packages:
 
-* numpy 1.11.0 or newer
-* av 0.4.1 (note: newer versions may require a newer ffmpeg library)
+* numpy 1.15.2
+* av 0.5.2
 * opencv-python 3.4.3.18
 * opencv-contrib-python 3.4.3.18
-* image 1.5.25
-* tellopy 0.5.0 -- this is the latest stable version available via PyPI / pip install
+* tellopy 0.5.0
 
 ### 3. Install ROS
 
-[Install ROS Kinetic](http://wiki.ros.org/Installation/Ubuntu) with the `ros-kinetic-desktop-full` option.
-This will install Gazebo 7 and OpenCV 3.3.1, among other things.
+[Install ROS Melodic](http://wiki.ros.org/Installation/Ubuntu) with the `ros-melodic-desktop-full` option.
+This will install Gazebo 9 and OpenCV 3.2, among other things.
+
+Install these additional packages:
+~~~
+sudo apt install ros-melodic-joystick-drivers
+~~~
 
 ### 4. Get Flock
 
 Create a catkin workspace:
 ~~~
-source /opt/ros/kinetic/setup.bash
+source /opt/ros/melodic/setup.bash
 mkdir -p ~/flock_catkin_ws/src
 cd ~/flock_catkin_ws/
 catkin_make

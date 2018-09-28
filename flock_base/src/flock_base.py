@@ -41,7 +41,7 @@ class FlockBase(object):
     def joy_callback(self, msg):
         twist = Twist()
         twist.linear.x = msg.axes[_joy_axis_forward]
-        twist.linear.y = -msg.axes[_joy_axis_strafe]
+        twist.linear.y = msg.axes[_joy_axis_strafe]
         twist.angular.z = -msg.axes[_joy_axis_yaw_]
         twist.linear.z = msg.axes[_joy_axis_vertical]
         self._cmd_vel_pub.publish(twist)
