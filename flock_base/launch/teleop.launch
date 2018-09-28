@@ -1,5 +1,11 @@
 <launch>
+  <arg name="left_handed" default="false" />
+
   <node name="flock_driver_node" pkg="flock_driver" type="flock_driver.py" output="screen" />
-  <node name="flock_base_node" pkg="flock_base" type="flock_base.py" output="screen" />
+
+  <node name="flock_base_node" pkg="flock_base" type="flock_base.py" output="screen">
+    <param name="left_handed" type="boolean" value="$(arg left_handed)" />
+  </node>
+
   <node name="joystick" pkg="joy" type="joy_node" output="screen" />
 </launch>
