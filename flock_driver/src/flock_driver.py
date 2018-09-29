@@ -3,12 +3,14 @@
 import threading
 import rospy
 from geometry_msgs.msg import Twist
+from sensor_msgs.msg import Image
 from std_msgs.msg import Empty
 from flock_msgs.msg import Flip, FlightData
 import av
 import cv2
 import numpy
 import tellopy
+from cv_bridge import CvBridge
 
 
 class FlockDriver(object):
@@ -16,11 +18,19 @@ class FlockDriver(object):
     def __init__(self):
         # Initialize ROS
         rospy.init_node('flock_driver_node', anonymous=True)
+
+        # ROS publishers
         self._flight_data_pub = rospy.Publisher('flight_data', FlightData, queue_size=10)
+        self._image_pub = rospy.Publisher('image_raw', Image, queue_size=10)
+
+        # ROS subscriptions
         rospy.Subscriber('cmd_vel', Twist, self.cmd_vel_callback)
         rospy.Subscriber('takeoff', Empty, self.takeoff_callback)
         rospy.Subscriber('land', Empty, self.land_callback)
         rospy.Subscriber('flip', Flip, self.flip_callback)
+
+        # ROS OpenCV bridge
+        self._cv_bridge = CvBridge()
 
         # Connect to the drone
         self._drone = tellopy.Tello()
@@ -156,10 +166,6 @@ class FlockDriver(object):
             self._drone.flip_backright()
 
     def video_worker(self):
-        # Design choice (for now): process images here, vs. sending decompressed video images to another node
-        aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_6X6_250)
-        parameters = cv2.aruco.DetectorParameters_create()
-
         # Get video stream, open in PyAV
         container = av.open(self._drone.get_video_stream())
 
@@ -170,19 +176,8 @@ class FlockDriver(object):
             # Convert PyAV frame => PIL image => OpenCV Mat
             color_mat = cv2.cvtColor(numpy.array(frame.to_image()), cv2.COLOR_RGB2BGR)
 
-            # Color => gray for detection
-            gray_mat = cv2.cvtColor(color_mat, cv2.COLOR_BGR2GRAY)
-
-            # Detect markers
-            corners, ids, _ = cv2.aruco.detectMarkers(gray_mat, aruco_dict, parameters=parameters)
-
-            # Publish list of corners
-            # TODO
-
-            # Draw border on the color image
-            color_mat = cv2.aruco.drawDetectedMarkers(color_mat, corners)
-            cv2.imshow('Markers', color_mat)
-            cv2.waitKey(1)
+            # Convert OpenCV Mat => ROS Image message and publish
+            self._image_pub.publish(self._cv_bridge.cv2_to_imgmsg(color_mat, 'bgr8'))
 
             # Check for normal shutdown
             if self._stop_request.isSet():

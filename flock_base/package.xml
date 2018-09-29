@@ -16,9 +16,11 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
+  <depend>cv_bridge</depend>
   <depend>flock_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>rospy</depend>
   <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
 
 </package>
