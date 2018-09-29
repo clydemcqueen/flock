@@ -7,11 +7,11 @@ from std_msgs.msg import Empty
 from flock_msgs.msg import Flip
 
 # XBox One joystick axes and buttons
-_joy_axis_left_lr = 0           # Left stick left/right; 1.0 is left and -1.0 is right
-_joy_axis_left_fb = 1           # Left stick forward/back; 1.0 is forward and -1.0 is back
-_joy_axis_left_trigger = 2      # Left trigger
-_joy_axis_right_lr = 3          # Right stick left/right; 1.0 is left and -1.0 is right
-_joy_axis_right_fb = 4          # Right stick forward/back; 1.0 is forward and -1.0 is back
+_joy_axis_left_lr = 5           # Left stick left/right; 1.0 is left and -1.0 is right
+_joy_axis_left_fb = 2           # Left stick forward/back; 1.0 is forward and -1.0 is back
+_joy_axis_left_trigger = 3     # Left trigger
+_joy_axis_right_lr = 0         # Right stick left/right; 1.0 is left and -1.0 is right
+_joy_axis_right_fb = 1          # Right stick forward/back; 1.0 is forward and -1.0 is back
 _joy_axis_right_trigger = 5     # Right trigger
 _joy_axis_trim_lr = 6           # Trim left/right; 1.0 for left and -1.0 for right
 _joy_axis_trim_fb = 7           # Trim forward/back; 1.0 for forward and -1.0 for back
@@ -39,6 +39,8 @@ class FlockBase(object):
         self.joy_axis_strafe = _joy_axis_right_lr
         self.joy_axis_vertical = _joy_axis_right_fb if left_handed else _joy_axis_left_fb
         self.joy_axis_yaw = _joy_axis_left_lr
+        self.joy_axis_left_trigger = _joy_axis_left_trigger
+        self.joy_axis_left_trigger_state = 0
         self.joy_button_takeoff = _joy_button_menu
         self.joy_button_land = _joy_button_view
         self.joy_button_flip_forward = _joy_button_Y
@@ -65,6 +67,16 @@ class FlockBase(object):
         twist.linear.z = msg.axes[self.joy_axis_vertical]   # ROS body frame convention: +z is ascend, -z is descend
         twist.angular.z = msg.axes[self.joy_axis_yaw]       # ROS body frame convention: +yaw is ccw, -yaw is cw
         self._cmd_vel_pub.publish(twist)
+
+        joy_axis_left_trigger_state = 1 if msg.axes[self.joy_axis_left_trigger] > 0.0 else -1
+        if self.joy_axis_left_trigger_state == 0:
+            self.joy_axis_left_trigger_state = joy_axis_left_trigger_state
+        elif self.joy_axis_left_trigger_state != joy_axis_left_trigger_state:
+            self.joy_axis_left_trigger_state = joy_axis_left_trigger_state
+            if joy_axis_left_trigger_state == 1:
+                self._takeoff_pub.publish()
+            else:
+                self._land_pub.publish()
 
         if msg.buttons[self.joy_button_takeoff] != 0:
             self._takeoff_pub.publish()
