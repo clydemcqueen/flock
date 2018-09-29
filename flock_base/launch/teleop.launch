@@ -7,5 +7,7 @@
     <param name="left_handed" type="boolean" value="$(arg left_handed)" />
   </node>
 
+  <node name="detect_aruco_node" pkg="flock_base" type="detect_aruco.py" output="screen" />
+
   <node name="joystick" pkg="joy" type="joy_node" output="screen" />
 </launch>
