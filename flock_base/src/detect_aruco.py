@@ -11,17 +11,12 @@ import numpy as np
 
 class DetectArUco(object):
 
-    # Fake data TODO provide data for Tello camera(s)
-    _camera_matrix = np.array([
-        [503.177416, 0.000000, 321.497483],
-        [0.000000, 501.403779, 248.637294],
-        [0.000000, 0.000000, 1.000000]
-    ])
-    _distortion = np.array([0.156934, -0.276625, 0.000091, 0.001410, 0.0000000])
+    # Clyde's Tello calibration data
+    _camera_matrix = np.array([[921.170702, 0.000000, 459.904354], [0.000000, 919.018377, 351.238301], [0.000000, 0.000000, 1.000000]])
+    _distortion = np.array([-0.033458, 0.105152, 0.001256, -0.006647, 0.000000])
 
     # Markers are 18cm x 18cm
     _marker_length = 0.18
-
 
     def __init__(self):
         # Initialize ROS
@@ -61,7 +56,6 @@ class DetectArUco(object):
         if tvecs is not None and rvecs is not None:
             # Rodrigues => 3x3 matrix
             R3x3, _ = cv2.Rodrigues(rvecs[0][0])
-            # print(R3x3)
 
             # transformations.py wants a 4x4 matrix -- probably a better way to do this
             R4x4 = np.zeros((4, 4))
@@ -69,14 +63,12 @@ class DetectArUco(object):
             R4x4[:3, 1] = R3x3[:, 1]
             R4x4[:3, 2] = R3x3[:, 2]
             R4x4[3,3] = 1
-            # print(R4x4)
 
             # 4x4 matrix => quaternion
             q = tf.transformations.quaternion_from_matrix(R4x4)
-            # print(q)
 
             # Broadcast transform
-            self._tf_broadcaster.sendTransform(tvecs[0][0], q, rospy.Time.now(), 'camera_link_frame', 'marker_frame')
+            self._tf_broadcaster.sendTransform(tvecs[0][0], q, rospy.Time.now(), 'marker_frame', 'camera_frame')
 
         # Draw border on the color image
         color_mat = cv2.aruco.drawDetectedMarkers(color_mat, corners)
