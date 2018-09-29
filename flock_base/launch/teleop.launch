@@ -10,4 +10,6 @@
   <node name="detect_aruco_node" pkg="flock_base" type="detect_aruco.py" output="screen" />
 
   <node name="joystick" pkg="joy" type="joy_node" output="screen" />
+
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find flock_base)/cfg/default.rviz" output="screen" />
 </launch>
