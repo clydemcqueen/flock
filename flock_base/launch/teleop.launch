@@ -11,5 +11,10 @@
 
   <node name="joystick" pkg="joy" type="joy_node" output="screen" />
 
+  <!-- Run rviz with a canned layout -->
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find flock_base)/cfg/default.rviz" output="screen" />
+
+  <!-- Load robot description -->
+  <include file="$(find flock_description)/launch/description.launch" />
+
 </launch>

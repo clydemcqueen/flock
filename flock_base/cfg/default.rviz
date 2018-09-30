@@ -6,6 +6,8 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
+        - /TF1
+        - /TF1/Frames1
         - /Image2
       Splitter Ratio: 0.5
     Tree Height: 383
@@ -62,9 +64,11 @@ Visualization Manager:
       Enabled: true
       Frame Timeout: 15
       Frames:
-        All Enabled: true
-        camera_link_frame:
-          Value: true
+        All Enabled: false
+        base_link:
+          Value: false
+        camera_frame:
+          Value: false
         marker_frame:
           Value: true
       Marker Scale: 1
@@ -73,9 +77,10 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        marker_frame:
-          camera_link_frame:
-            {}
+        base_link:
+          camera_frame:
+            marker_frame:
+              {}
       Update Interval: 0
       Value: true
     - Class: rviz/Image
@@ -102,6 +107,32 @@ Visualization Manager:
       Transport Hint: raw
       Unreliable: false
       Value: true
+    - Alpha: 1
+      Class: rviz/RobotModel
+      Collision Enabled: false
+      Enabled: true
+      Links:
+        All Links Enabled: true
+        Expand Joint Details: false
+        Expand Link Details: false
+        Expand Tree: false
+        Link Tree Style: Links in Alphabetic Order
+        base_link:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        camera_frame:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+      Name: RobotModel
+      Robot Description: robot_description
+      TF Prefix: ""
+      Update Interval: 0
+      Value: true
+      Visual Enabled: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -127,7 +158,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 4.764615058898926
+      Distance: 4.963057518005371
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -145,7 +176,7 @@ Visualization Manager:
       Pitch: 1.5697963237762451
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 5.083206653594971
+      Yaw: 4.938204765319824
     Saved: ~
 Window Geometry:
   Displays:
@@ -166,4 +197,4 @@ Window Geometry:
     collapsed: false
   Width: 1965
   X: 1865
-  Y: 172
+  Y: 112
