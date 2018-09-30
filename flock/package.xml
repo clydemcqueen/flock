@@ -17,6 +17,7 @@
   <buildtool_depend>catkin</buildtool_depend>
 
   <exec_depend>flock_base</exec_depend>
+  <exec_depend>flock_description</exec_depend>
   <exec_depend>flock_driver</exec_depend>
   <exec_depend>flock_msgs</exec_depend>
 
