@@ -9,6 +9,21 @@ import tf.transformations
 import numpy as np
 
 
+def rodrigues_to_quaternion(R):
+    # Rodrigues => 3x3 matrix
+    R3x3, _ = cv2.Rodrigues(R)
+
+    # transformations.py wants a 4x4 matrix -- probably a better way to do this
+    R4x4 = np.zeros((4, 4))
+    R4x4[:3, 0] = R3x3[:, 0]
+    R4x4[:3, 1] = R3x3[:, 1]
+    R4x4[:3, 2] = R3x3[:, 2]
+    R4x4[3,3] = 1
+
+    # 4x4 matrix => quaternion
+    return tf.transformations.quaternion_from_matrix(R4x4)
+
+
 class DetectArUco(object):
 
     # Clyde's Tello calibration data
@@ -18,25 +33,37 @@ class DetectArUco(object):
     # Markers are 18cm x 18cm
     _marker_length = 0.18
 
+    # ID of the first marker we saw
+    _first_marker = -1
+
     def __init__(self):
+        # ArUco data -- we're using 6x6 ArUco images
+        self._aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_6X6_250)
+        self._aruco_parameters = cv2.aruco.DetectorParameters_create()
+
         # Initialize ROS
         rospy.init_node('detect_aruco_node', anonymous=False)
 
         # ROS publishers
         self._image_pub = rospy.Publisher('image_marked', Image, queue_size=10)
-        self._tf_broadcaster = tf.TransformBroadcaster()
-
-        # ROS subscriptions
-        rospy.Subscriber("image_raw", Image, self.image_callback)
 
         # ROS OpenCV bridge
         self._cv_bridge = CvBridge()
 
-        # ArUco data -- we're using 6x6 ArUco images
-        self._aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_6X6_250)
-        self._aruco_parameters = cv2.aruco.DetectorParameters_create()
+        # ROS transform managers
+        self._tf_listener = tf.TransformListener()
+        self._tf_broadcaster = tf.TransformBroadcaster()
 
-        # Spin until interrupted
+        # Get a few key static transforms
+        self._tf_listener.waitForTransform("odom", "first_marker_frame", rospy.Time(), rospy.Duration(4))
+        self._odom_to_first_marker_frame = self._tf_listener.lookupTransform("odom", "first_marker_frame", rospy.Time())
+        print(self._odom_to_first_marker_frame)
+        self._tf_listener.waitForTransform("base_link", "camera_frame", rospy.Time(), rospy.Duration(4))
+        self._base_link_to_camera_frame = self._tf_listener.lookupTransform("base_link", "camera_frame", rospy.Time())
+        print(self._base_link_to_camera_frame)
+
+        # Now that we're initialized, set up subscriptions and spin
+        rospy.Subscriber("image_raw", Image, self.image_callback)
         rospy.spin()
 
     def image_callback(self, msg):
@@ -49,36 +76,43 @@ class DetectArUco(object):
         # Detect markers
         corners, ids, _ = cv2.aruco.detectMarkers(gray_mat, self._aruco_dict, parameters=self._aruco_parameters)
 
-        # Compute pose
-        rvecs, tvecs, object_points = cv2.aruco.estimatePoseSingleMarkers(corners, self._marker_length, self._camera_matrix, self._distortion)
+        # Stop if no markers were detected
+        if ids is None:
+            return
 
-        # Publish pose to marker0 as a TF message
-        if tvecs is not None and rvecs is not None:
-            # Rodrigues => 3x3 matrix
-            R3x3, _ = cv2.Rodrigues(rvecs[0][0])
+        # Grab the first marker we see
+        if self._first_marker < 0:
+            self._first_marker = ids[0][0]
+            rospy.loginfo('First marker has id %d' % self._first_marker)
 
-            # transformations.py wants a 4x4 matrix -- probably a better way to do this
-            R4x4 = np.zeros((4, 4))
-            R4x4[:3, 0] = R3x3[:, 0]
-            R4x4[:3, 1] = R3x3[:, 1]
-            R4x4[:3, 2] = R3x3[:, 2]
-            R4x4[3,3] = 1
-
-            # 4x4 matrix => quaternion
-            q = tf.transformations.quaternion_from_matrix(R4x4)
-
-            # Broadcast transform
-            self._tf_broadcaster.sendTransform(tvecs[0][0], q, rospy.Time.now(), 'marker_frame', 'camera_frame')
-
-        # Draw border on the color image
+        # Draw borders on the color image
         color_mat = cv2.aruco.drawDetectedMarkers(color_mat, corners)
 
-        # Debugging display
-        # cv2.imshow('Markers', color_mat)
-        # cv2.waitKey(1)
-
-        # Publish marked up image
+        # Publish the marked up image
         self._image_pub.publish(self._cv_bridge.cv2_to_imgmsg(color_mat, 'bgr8'))
+
+        # Compute transformations, each is marker_frame => camera_frame
+        rvecs, tvecs, object_points = cv2.aruco.estimatePoseSingleMarkers(corners, self._marker_length, self._camera_matrix, self._distortion)
+
+        for index in range(len(ids)):
+            if ids[index][0] == self._first_marker:
+                # Compute odom => base_link from these transformations:
+                #     self._odom_to_marker_frame
+                #     self._base_link_to_camera_frame
+                #     camera_frame => marker_frame
+                # TODO
+
+                # Broadcast camera_frame => marker_frame
+                # TODO broadcast the odom => base_link transform instead
+                T = tvecs[index][0]
+                q = rodrigues_to_quaternion(rvecs[index][0])
+                self._tf_broadcaster.sendTransform(T, q, rospy.Time.now(), child='marker_frame', parent='camera_frame')
+                break
+
+        for index in range(len(ids)):
+            # TODO compute pose of marker in odom frame
+            # TODO draw marker in rviz
+            pass
 
 
 if __name__ == '__main__':

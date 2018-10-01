@@ -17,4 +17,7 @@
   <!-- Load robot description -->
   <include file="$(find flock_description)/launch/description.launch" />
 
+  <!-- Static transform odom => marker_frame, transform is x y z yaw pitch roll -->
+  <node name="odom_marker_node" pkg="tf" type="static_transform_publisher" args="0 0 1 0 0 0 odom first_marker_frame 100" />
+
 </launch>
