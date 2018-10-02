@@ -69,12 +69,36 @@ class FlockBase(object):
         rospy.spin()
 
     def joy_callback(self, msg):
-        twist = Twist()
-        twist.linear.x = msg.axes[self.joy_axis_throttle]   # ROS body frame convention: +x is forward, -x is back
-        twist.linear.y = msg.axes[self.joy_axis_strafe]     # ROS body frame convention: +y is left, -y is right
-        twist.linear.z = msg.axes[self.joy_axis_vertical]   # ROS body frame convention: +z is ascend, -z is descend
-        twist.angular.z = msg.axes[self.joy_axis_yaw]       # ROS body frame convention: +yaw is ccw, -yaw is cw
-        self._cmd_vel_pub.publish(twist)
+        trim_published = False
+        left_bumper_pressed = msg.buttons[self.joy_button_left_bumper] != 0
+
+        if msg.axes[self.joy_axis_trim_lr] != self.joy_axis_trim_lr_state:
+            self.joy_axis_trim_lr_state = msg.axes[self.joy_axis_trim_lr]
+            flip_command = Flip.move_yaw_none if left_bumper_pressed else Flip.move_lr_none
+            if self.joy_axis_trim_lr_state > 0:
+                flip_command = Flip.move_yawleft if left_bumper_pressed else Flip.move_left
+            elif self.joy_axis_trim_lr_state < 0:
+                flip_command = Flip.move_yawright if left_bumper_pressed else Flip.move_right
+            self._flip_pub.publish(Flip(flip_command=flip_command))
+            trim_published = True
+
+        if msg.axes[self.joy_axis_trim_fb] != self.joy_axis_trim_fb_state:
+            self.joy_axis_trim_fb_state = msg.axes[self.joy_axis_trim_fb]
+            flip_command = Flip.move_ud_none if left_bumper_pressed else Flip.move_fb_none
+            if self.joy_axis_trim_fb_state > 0:
+                flip_command = Flip.move_up if left_bumper_pressed else Flip.move_forward
+            elif self.joy_axis_trim_fb_state < 0:
+                flip_command = Flip.move_down if left_bumper_pressed else Flip.move_back
+            self._flip_pub.publish(Flip(flip_command=flip_command))
+            trim_published = True
+
+        if not trim_published:
+            twist = Twist()
+            twist.linear.x = msg.axes[self.joy_axis_throttle]   # ROS body frame convention: +x is forward, -x is back
+            twist.linear.y = msg.axes[self.joy_axis_strafe]     # ROS body frame convention: +y is left, -y is right
+            twist.linear.z = msg.axes[self.joy_axis_vertical]   # ROS body frame convention: +z is ascend, -z is descend
+            twist.angular.z = msg.axes[self.joy_axis_yaw]       # ROS body frame convention: +yaw is ccw, -yaw is cw
+            self._cmd_vel_pub.publish(twist)
 
         if msg.buttons[self.joy_button_takeoff] != 0:
             self._takeoff_pub.publish()
@@ -90,25 +114,6 @@ class FlockBase(object):
         elif msg.buttons[self.joy_button_flip_back] != 0:
             self._flip_pub.publish(Flip(flip_command=Flip.flip_back))
 
-        left_bumper_pressed = msg.buttons[self.joy_button_left_bumper] != 0
-
-        if msg.axes[self.joy_axis_trim_lr] != self.joy_axis_trim_lr_state:
-            self.joy_axis_trim_lr_state = msg.axes[self.joy_axis_trim_lr]
-            flip_command = Flip.move_yaw_none if left_bumper_pressed else Flip.move_lr_none
-            if self.joy_axis_trim_lr_state > 0:
-                flip_command = Flip.move_yawleft if left_bumper_pressed else Flip.move_left
-            elif self.joy_axis_trim_lr_state < 0:
-                flip_command = Flip.move_yawright if left_bumper_pressed else Flip.move_right
-            self._flip_pub.publish(Flip(flip_command=flip_command))
-
-        if msg.axes[self.joy_axis_trim_fb] != self.joy_axis_trim_fb_state:
-            self.joy_axis_trim_fb_state = msg.axes[self.joy_axis_trim_fb]
-            flip_command = Flip.move_ud_none if left_bumper_pressed else Flip.move_fb_none
-            if self.joy_axis_trim_fb_state > 0:
-                flip_command = Flip.move_up if left_bumper_pressed else Flip.move_forward
-            elif self.joy_axis_trim_fb_state < 0:
-                flip_command = Flip.move_down if left_bumper_pressed else Flip.move_back
-            self._flip_pub.publish(Flip(flip_command=flip_command))
 
 
 if __name__ == '__main__':
