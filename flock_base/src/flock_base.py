@@ -31,7 +31,7 @@ _joy_button_right_stick = 10    # Right stick button
 class FlockBase(object):
 
     def __init__(self):
-        rospy.init_node('flock_base_node', anonymous=True)
+        rospy.init_node('flock_base_node', anonymous=False)
 
         # Joystick assignments
         left_handed = rospy.get_param('~left_handed', False)    # ~ means private, e.g., /flock_base_node/left_handed
@@ -45,6 +45,16 @@ class FlockBase(object):
         self.joy_button_flip_left = _joy_button_X
         self.joy_button_flip_right = _joy_button_B
         self.joy_button_flip_back = _joy_button_A
+        self.joy_button_left_bumper = _joy_button_left_bumper
+        self.joy_axis_trim_lr = _joy_axis_trim_lr
+        self.joy_axis_trim_fb = _joy_axis_trim_fb
+
+        # Trim axis state
+        self.joy_axis_trim_lr_state = 0.0
+        self.joy_axis_trim_fb_state = 0.0
+
+        # speed for trim commands
+        self.speed = 100
 
         # Publications
         self._cmd_vel_pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
@@ -79,6 +89,26 @@ class FlockBase(object):
             self._flip_pub.publish(Flip(flip_command=Flip.flip_right))
         elif msg.buttons[self.joy_button_flip_back] != 0:
             self._flip_pub.publish(Flip(flip_command=Flip.flip_back))
+
+        left_bumper_pressed = msg.buttons[self.joy_button_left_bumper] != 0
+
+        if msg.axes[self.joy_axis_trim_lr] != self.joy_axis_trim_lr_state:
+            self.joy_axis_trim_lr_state = msg.axes[self.joy_axis_trim_lr]
+            flip_command = Flip.move_yaw_none if left_bumper_pressed else Flip.move_lr_none
+            if self.joy_axis_trim_lr_state > 0:
+                flip_command = Flip.move_yawleft if left_bumper_pressed else Flip.move_left
+            elif self.joy_axis_trim_lr_state < 0:
+                flip_command = Flip.move_yawright if left_bumper_pressed else Flip.move_right
+            self._flip_pub.publish(Flip(flip_command=flip_command))
+
+        if msg.axes[self.joy_axis_trim_fb] != self.joy_axis_trim_fb_state:
+            self.joy_axis_trim_fb_state = msg.axes[self.joy_axis_trim_fb]
+            flip_command = Flip.move_ud_none if left_bumper_pressed else Flip.move_fb_none
+            if self.joy_axis_trim_fb_state > 0:
+                flip_command = Flip.move_up if left_bumper_pressed else Flip.move_forward
+            elif self.joy_axis_trim_fb_state < 0:
+                flip_command = Flip.move_down if left_bumper_pressed else Flip.move_back
+            self._flip_pub.publish(Flip(flip_command=flip_command))
 
 
 if __name__ == '__main__':

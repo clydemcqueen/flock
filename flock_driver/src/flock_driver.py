@@ -17,7 +17,7 @@ class FlockDriver(object):
 
     def __init__(self):
         # Initialize ROS
-        rospy.init_node('flock_driver_node', anonymous=True)
+        rospy.init_node('flock_driver_node', anonymous=False)
 
         # ROS publishers
         self._flight_data_pub = rospy.Publisher('flight_data', FlightData, queue_size=10)
@@ -148,6 +148,7 @@ class FlockDriver(object):
         self._drone.land()
 
     def flip_callback(self, msg):
+        speed = 0.20
         if msg.flip_command == Flip.flip_forward:
             self._drone.flip_forward()
         elif msg.flip_command == Flip.flip_back:
@@ -164,6 +165,32 @@ class FlockDriver(object):
             self._drone.flip_backleft()
         elif msg.flip_command == Flip.flip_backright:
             self._drone.flip_backright()
+
+        elif msg.flip_command == Flip.move_forward:
+            self._drone.set_pitch(speed)
+        elif msg.flip_command == Flip.move_left:
+            self._drone.set_roll(-speed)
+        elif msg.flip_command == Flip.move_back:
+            self._drone.set_pitch(-speed)
+        elif msg.flip_command == Flip.move_right:
+            self._drone.set_roll(speed)
+        elif msg.flip_command == Flip.move_up:
+            self._drone.set_throttle(speed)
+        elif msg.flip_command == Flip.move_yawleft:
+            self._drone.set_yaw(-speed)
+        elif msg.flip_command == Flip.move_down:
+            self._drone.set_throttle(-speed)
+        elif msg.flip_command == Flip.move_yawright:
+            self._drone.set_yaw(speed)
+        elif msg.flip_command == Flip.move_fb_none:
+            self._drone.set_pitch(0.)
+        elif msg.flip_command == Flip.move_lr_none:
+            self._drone.set_roll(0.)
+        elif msg.flip_command == Flip.move_ud_none:
+            self._drone.set_throttle(0.)
+        elif msg.flip_command == Flip.move_yaw_none:
+            self._drone.set_yaw(0.)
+
 
     def video_worker(self):
         # Get video stream, open in PyAV
