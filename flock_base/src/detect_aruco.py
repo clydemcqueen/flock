@@ -8,20 +8,33 @@ import tf
 import tf.transformations
 import numpy as np
 
+# Transformation notation:
+# Tst == T_source_target
+# vector_target = T_source_target * vector_source
 
-def rodrigues_to_quaternion(R):
-    # Rodrigues => 3x3 matrix
-    R3x3, _ = cv2.Rodrigues(R)
 
-    # transformations.py wants a 4x4 matrix -- probably a better way to do this
-    R4x4 = np.zeros((4, 4))
-    R4x4[:3, 0] = R3x3[:, 0]
-    R4x4[:3, 1] = R3x3[:, 1]
-    R4x4[:3, 2] = R3x3[:, 2]
-    R4x4[3,3] = 1
+def rvec_and_tvec_to_matrix(rvec, tvec):
+    """Rodrigues rotation and translation vector to 4x4 matrix"""
+    R, _ = cv2.Rodrigues(rvec)
+    T = np.identity(4)
+    T[:3, :3] = R
+    T[:3, 3] = tvec
+    return T
 
-    # 4x4 matrix => quaternion
-    return tf.transformations.quaternion_from_matrix(R4x4)
+
+def tf_to_matrix(ros_transform):
+    """ROS transform to 4x4 matrix"""
+    t, q = ros_transform
+    T = tf.transformations.quaternion_matrix(q)
+    T[:3, 3] = t
+    return T
+
+
+def matrix_to_tf(T):
+    """4x4 matrix to ROS transform"""
+    t = T[:3, 3]
+    q = tf.transformations.quaternion_from_matrix(T)
+    return (t, q)
 
 
 class DetectArUco(object):
@@ -55,12 +68,12 @@ class DetectArUco(object):
         self._tf_broadcaster = tf.TransformBroadcaster()
 
         # Get a few key static transforms
-        self._tf_listener.waitForTransform("odom", "first_marker_frame", rospy.Time(), rospy.Duration(4))
-        self._odom_to_first_marker_frame = self._tf_listener.lookupTransform("odom", "first_marker_frame", rospy.Time())
-        print(self._odom_to_first_marker_frame)
-        self._tf_listener.waitForTransform("base_link", "camera_frame", rospy.Time(), rospy.Duration(4))
-        self._base_link_to_camera_frame = self._tf_listener.lookupTransform("base_link", "camera_frame", rospy.Time())
-        print(self._base_link_to_camera_frame)
+        time = rospy.Time()
+        wait = rospy.Duration(4)
+        self._tf_listener.waitForTransform("marker_frame", "odom", time, wait)  # target, source
+        self._Tom = tf_to_matrix(self._tf_listener.lookupTransform("marker_frame", "odom", time))  # target, source
+        self._tf_listener.waitForTransform("base_link", "camera_frame", time, wait)
+        self._Tcb = tf_to_matrix(self._tf_listener.lookupTransform("base_link", "camera_frame", time))
 
         # Now that we're initialized, set up subscriptions and spin
         rospy.Subscriber("image_raw", Image, self.image_callback)
@@ -86,27 +99,26 @@ class DetectArUco(object):
             rospy.loginfo('First marker has id %d' % self._first_marker)
 
         # Draw borders on the color image
-        color_mat = cv2.aruco.drawDetectedMarkers(color_mat, corners)
+        # color_mat = cv2.aruco.drawDetectedMarkers(color_mat, corners)
 
         # Publish the marked up image
-        self._image_pub.publish(self._cv_bridge.cv2_to_imgmsg(color_mat, 'bgr8'))
+        # self._image_pub.publish(self._cv_bridge.cv2_to_imgmsg(color_mat, 'bgr8'))
 
         # Compute transformations, each is marker_frame => camera_frame
         rvecs, tvecs, object_points = cv2.aruco.estimatePoseSingleMarkers(corners, self._marker_length, self._camera_matrix, self._distortion)
 
         for index in range(len(ids)):
             if ids[index][0] == self._first_marker:
-                # Compute odom => base_link from these transformations:
-                #     self._odom_to_marker_frame
-                #     self._base_link_to_camera_frame
-                #     camera_frame => marker_frame
-                # TODO
+                # Tob = Tcb * Tmc * Tom
+                Tmc = rvec_and_tvec_to_matrix(rvecs[index][0], tvecs[index][0])
+                Tob = self._Tcb.dot(Tmc).dot(self._Tom)
 
-                # Broadcast camera_frame => marker_frame
-                # TODO broadcast the odom => base_link transform instead
-                T = tvecs[index][0]
-                q = rodrigues_to_quaternion(rvecs[index][0])
-                self._tf_broadcaster.sendTransform(T, q, rospy.Time.now(), child='marker_frame', parent='camera_frame')
+                # Broadcast the tf transform odom => base_link, where child=target, parent=source
+                # We can't flip source and target because we want odom to be the parent of base_link
+                # Instead, we need to invert matrix Tob to get Tbo
+                Tbo = tf.transformations.inverse_matrix(Tob)
+                t, q = matrix_to_tf(Tbo)
+                self._tf_broadcaster.sendTransform(t, q, rospy.Time.now(), child='base_link', parent='odom')
                 break
 
         for index in range(len(ids)):
