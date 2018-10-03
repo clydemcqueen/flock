@@ -9,6 +9,7 @@ Panels:
         - /TF1
         - /TF1/Frames1
         - /Image1
+        - /MarkerArray1
       Splitter Ratio: 0.5
     Tree Height: 965
   - Class: rviz/Selection
@@ -69,8 +70,6 @@ Visualization Manager:
           Value: false
         camera_frame:
           Value: false
-        marker_frame:
-          Value: true
         odom:
           Value: true
       Marker Scale: 1
@@ -83,8 +82,6 @@ Visualization Manager:
           base_link:
             camera_frame:
               {}
-          marker_frame:
-            {}
       Update Interval: 0
       Value: true
     - Class: rviz/Image
@@ -125,6 +122,14 @@ Visualization Manager:
       Update Interval: 0
       Value: true
       Visual Enabled: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /rviz_markers
+      Name: MarkerArray
+      Namespaces:
+        "": true
+      Queue Size: 100
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
