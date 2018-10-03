@@ -2,6 +2,8 @@
 
 import rospy
 from sensor_msgs.msg import Image
+from visualization_msgs.msg import Marker
+from visualization_msgs.msg import MarkerArray
 import cv2
 from cv_bridge import CvBridge
 import tf
@@ -59,6 +61,7 @@ class DetectArUco(object):
 
         # ROS publishers
         self._image_pub = rospy.Publisher('image_marked', Image, queue_size=10)
+        self._rviz_markers_pub = rospy.Publisher('rviz_markers', MarkerArray, queue_size=10)
 
         # ROS OpenCV bridge
         self._cv_bridge = CvBridge()
@@ -122,9 +125,26 @@ class DetectArUco(object):
                 break
 
         for index in range(len(ids)):
-            # TODO compute pose of marker in odom frame
-            # TODO draw marker in rviz
-            pass
+            # TODO compute pose of all markers in odom frame, and add them
+            if ids[index][0] == self._first_marker:
+                marker = Marker()
+                marker.id = self._first_marker
+                marker.header.frame_id = 'odom'
+                marker.type = marker.CUBE
+                marker.scale.x = 0.01
+                marker.scale.y = 0.1
+                marker.scale.z = 0.1
+                marker.color.a = 1.0
+                marker.color.r = 1.0
+                marker.color.g = 1.0
+                marker.color.b = 0.0
+                marker.pose.orientation.w = 1.0
+                marker.pose.position.x = 0
+                marker.pose.position.y = 0
+                marker.pose.position.z = 0
+                markerArray = MarkerArray()
+                markerArray.markers.append(marker)
+                self._rviz_markers_pub.publish(markerArray)
 
 
 if __name__ == '__main__':
