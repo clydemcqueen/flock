@@ -19,6 +19,9 @@ class FlockDriver(object):
         # Initialize ROS
         rospy.init_node('flock_driver_node', anonymous=False)
 
+        # Params
+        self.trim_speed = rospy.get_param('~trim_speed', 0.25)    # ~ means private, e.g., /flock_base_node/left_handed
+
         # ROS publishers
         self._flight_data_pub = rospy.Publisher('flight_data', FlightData, queue_size=10)
         self._image_pub = rospy.Publisher('image_raw', Image, queue_size=10)
@@ -148,7 +151,7 @@ class FlockDriver(object):
         self._drone.land()
 
     def flip_callback(self, msg):
-        speed = 0.20
+        speed = self.trim_speed
         if msg.flip_command == Flip.flip_forward:
             self._drone.flip_forward()
         elif msg.flip_command == Flip.flip_back:

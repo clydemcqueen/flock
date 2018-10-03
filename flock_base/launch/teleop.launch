@@ -1,7 +1,10 @@
 <launch>
   <arg name="left_handed" default="false" />
+  <arg name="trim_speed" default="0.25" />
 
-  <node name="flock_driver_node" pkg="flock_driver" type="flock_driver.py" output="screen" />
+  <node name="flock_driver_node" pkg="flock_driver" type="flock_driver.py" output="screen" >
+    <param name="trim_speed" type="double" value="$(arg trim_speed)" />
+  </node>
 
   <node name="flock_base_node" pkg="flock_base" type="flock_base.py" output="screen">
     <param name="left_handed" type="boolean" value="$(arg left_handed)" />
