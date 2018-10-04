@@ -8,8 +8,8 @@
   <maintainer email="clyde@mcqueen.net">Clyde McQueen</maintainer>
   <license>BSD</license>
 
-  <url type="repository">https://github.com/clydemcqueen/orca.git</url>
-  <url type="bugtracker">https://github.com/clydemcqueen/orca/issues</url>
+  <url type="repository">https://github.com/clydemcqueen/flock.git</url>
+  <url type="bugtracker">https://github.com/clydemcqueen/flock/issues</url>
 
   <author>Clyde McQueen</author>
   <author>Peter Mullen</author>
