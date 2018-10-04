@@ -19,9 +19,6 @@ class FlockDriver(object):
         # Initialize ROS
         rospy.init_node('flock_driver_node', anonymous=False)
 
-        # Params
-        self.trim_speed = rospy.get_param('~trim_speed', 0.25)    # ~ means private, e.g., /flock_base_node/left_handed
-
         # ROS publishers
         self._flight_data_pub = rospy.Publisher('flight_data', FlightData, queue_size=10)
         self._image_pub = rospy.Publisher('image_raw', Image, queue_size=10)
@@ -151,7 +148,6 @@ class FlockDriver(object):
         self._drone.land()
 
     def flip_callback(self, msg):
-        speed = self.trim_speed
         if msg.flip_command == Flip.flip_forward:
             self._drone.flip_forward()
         elif msg.flip_command == Flip.flip_back:
@@ -168,32 +164,6 @@ class FlockDriver(object):
             self._drone.flip_backleft()
         elif msg.flip_command == Flip.flip_backright:
             self._drone.flip_backright()
-
-        elif msg.flip_command == Flip.move_forward:
-            self._drone.set_pitch(speed)
-        elif msg.flip_command == Flip.move_left:
-            self._drone.set_roll(-speed)
-        elif msg.flip_command == Flip.move_back:
-            self._drone.set_pitch(-speed)
-        elif msg.flip_command == Flip.move_right:
-            self._drone.set_roll(speed)
-        elif msg.flip_command == Flip.move_up:
-            self._drone.set_throttle(speed)
-        elif msg.flip_command == Flip.move_yawleft:
-            self._drone.set_yaw(-speed)
-        elif msg.flip_command == Flip.move_down:
-            self._drone.set_throttle(-speed)
-        elif msg.flip_command == Flip.move_yawright:
-            self._drone.set_yaw(speed)
-        elif msg.flip_command == Flip.move_fb_none:
-            self._drone.set_pitch(0.)
-        elif msg.flip_command == Flip.move_lr_none:
-            self._drone.set_roll(0.)
-        elif msg.flip_command == Flip.move_ud_none:
-            self._drone.set_throttle(0.)
-        elif msg.flip_command == Flip.move_yaw_none:
-            self._drone.set_yaw(0.)
-
 
     def video_worker(self):
         # Get video stream, open in PyAV
