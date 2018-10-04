@@ -33,8 +33,10 @@ class FlockBase(object):
     def __init__(self):
         rospy.init_node('flock_base_node', anonymous=False)
 
-        # Joystick assignments
+        self.trim_speed = rospy.get_param('~trim_speed', 0.25)    # ~ means private, e.g., /flock_base_node/left_handed
         left_handed = rospy.get_param('~left_handed', False)    # ~ means private, e.g., /flock_base_node/left_handed
+
+        # Joystick assignments
         self.joy_axis_throttle = _joy_axis_left_fb if left_handed else _joy_axis_right_fb
         self.joy_axis_strafe = _joy_axis_right_lr
         self.joy_axis_vertical = _joy_axis_right_fb if left_handed else _joy_axis_left_fb
@@ -45,6 +47,39 @@ class FlockBase(object):
         self.joy_button_flip_left = _joy_button_X
         self.joy_button_flip_right = _joy_button_B
         self.joy_button_flip_back = _joy_button_A
+        self.joy_button_left_bumper = _joy_button_left_bumper
+        self.joy_axis_trim_lr = _joy_axis_trim_lr
+        self.joy_axis_trim_fb = _joy_axis_trim_fb
+
+        # Trim axis commands
+        self.trim_targets_lr = \
+            {
+                (-1, False): (3, -1.0),
+                (1, False): (3, 1.0),
+                (-1, True): (1, -1.0),
+                (1, True): (1, 1.0),
+            } \
+            if left_handed else \
+            {
+                (-1, False): (1, -1.0),
+                (1, False): (1, 1.0),
+                (-1, True): (3, -1.0),
+                (1, True): (3, 1.0),
+            }
+        self.trim_targets_fb = \
+            {
+                (-1, False): (0, -1.0),
+                (1, False): (0, 1.0),
+                (-1, True): (2, -1.0),
+                (1, True): (2, 1.0),
+            } \
+            if left_handed else \
+            {
+                (-1, False): (0, -1.0),
+                (1, False): (0, 1.0),
+                (-1, True): (2, -1.0),
+                (1, True): (2, 1.0),
+            }
 
         # Publications
         self._cmd_vel_pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
@@ -58,12 +93,38 @@ class FlockBase(object):
         # Spin until interrupted
         rospy.spin()
 
+    def joy_axis_trim_process(self, msg, axis_id, trim_targets, twist):
+        axis_value = msg.axes[axis_id]
+        axis_state = -1 if axis_value < -0.5 else 1 if axis_value > 0.5 else 0
+        left_bumper_pressed = msg.buttons[self.joy_button_left_bumper] != 0
+        key = (axis_state, left_bumper_pressed)
+        if key not in trim_targets:
+            return False
+        twist_field, twist_sign = trim_targets[key]
+        twist_value = twist_sign * self.trim_speed
+        print(key, trim_targets[key])
+        if twist_field == 0:
+            twist.linear.x = twist_value
+        elif twist_field == 1:
+            twist.linear.y = twist_value
+        elif twist_field == 2:
+            twist.linear.z = twist_value
+        else:
+            twist.angular.z = twist_value
+        return True
+
     def joy_callback(self, msg):
         twist = Twist()
-        twist.linear.x = msg.axes[self.joy_axis_throttle]   # ROS body frame convention: +x is forward, -x is back
-        twist.linear.y = msg.axes[self.joy_axis_strafe]     # ROS body frame convention: +y is left, -y is right
-        twist.linear.z = msg.axes[self.joy_axis_vertical]   # ROS body frame convention: +z is ascend, -z is descend
-        twist.angular.z = msg.axes[self.joy_axis_yaw]       # ROS body frame convention: +yaw is ccw, -yaw is cw
+
+        trim_lr_pressed = self.joy_axis_trim_process(msg, self.joy_axis_trim_lr, self.trim_targets_lr, twist)
+        trim_fb_pressed = self.joy_axis_trim_process(msg, self.joy_axis_trim_fb, self.trim_targets_fb, twist)
+
+        if not trim_lr_pressed and not trim_fb_pressed:
+            twist.linear.x = msg.axes[self.joy_axis_throttle]   # ROS body frame convention: +x is forward, -x is back
+            twist.linear.y = msg.axes[self.joy_axis_strafe]     # ROS body frame convention: +y is left, -y is right
+            twist.linear.z = msg.axes[self.joy_axis_vertical]   # ROS body frame convention: +z is ascend, -z is descend
+            twist.angular.z = msg.axes[self.joy_axis_yaw]       # ROS body frame convention: +yaw is ccw, -yaw is cw
+
         self._cmd_vel_pub.publish(twist)
 
         if msg.buttons[self.joy_button_takeoff] != 0:
