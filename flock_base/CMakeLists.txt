@@ -9,6 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   sensor_msgs
   std_msgs
+  visualization_msgs
 )
 
 ## Declare a catkin package and export dependencies
@@ -20,4 +21,5 @@ catkin_package(
   rospy
   sensor_msgs
   std_msgs
+  visualization_msgs
 )

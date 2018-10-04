@@ -31,7 +31,7 @@ _joy_button_right_stick = 10    # Right stick button
 class FlockBase(object):
 
     def __init__(self):
-        rospy.init_node('flock_base_node', anonymous=True)
+        rospy.init_node('flock_base_node', anonymous=False)
 
         # Joystick assignments
         left_handed = rospy.get_param('~left_handed', False)    # ~ means private, e.g., /flock_base_node/left_handed

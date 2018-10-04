@@ -3,7 +3,7 @@
 <!-- Body coordinates are: x forward, y left, z up; rotation is: roll right, pitch forward, yaw left -->
 <!-- See http://www.ros.org/reps/rep-0103.html -->
 
-<robot name="orca" xmlns:xacro="http://ros.org/wiki/xacro">
+<robot name="tello" xmlns:xacro="http://ros.org/wiki/xacro">
 
   <!-- Constants -->
   <xacro:property name="PI" value="3.1415926535897931"/>

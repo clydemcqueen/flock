@@ -17,7 +17,7 @@ class FlockDriver(object):
 
     def __init__(self):
         # Initialize ROS
-        rospy.init_node('flock_driver_node', anonymous=True)
+        rospy.init_node('flock_driver_node', anonymous=False)
 
         # ROS publishers
         self._flight_data_pub = rospy.Publisher('flight_data', FlightData, queue_size=10)
