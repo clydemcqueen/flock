@@ -50,6 +50,7 @@ class FlockBase(object):
         self.joy_button_left_bumper = _joy_button_left_bumper
         self.joy_axis_trim_lr = _joy_axis_trim_lr
         self.joy_axis_trim_fb = _joy_axis_trim_fb
+	self.joy_take_pic = _joy_axis_right_trigger
 
         # Trim axis commands
         self.trim_targets_lr = \
@@ -86,6 +87,7 @@ class FlockBase(object):
         self._takeoff_pub = rospy.Publisher('takeoff', Empty, queue_size=10)
         self._land_pub = rospy.Publisher('land', Empty, queue_size=10)
         self._flip_pub = rospy.Publisher('flip', Flip, queue_size=10)
+	self._take_pic_pub = rospy.Publisher('take_pic', Empty, queue_size=10)
 
         # Subscriptions
         rospy.Subscriber('joy', Joy, self.joy_callback)
@@ -141,6 +143,8 @@ class FlockBase(object):
         elif msg.buttons[self.joy_button_flip_back] != 0:
             self._flip_pub.publish(Flip(flip_command=Flip.flip_back))
 
+	if msg.buttons[self.joy_take_pic] != 0:
+	    self._take_pic_pub.publish()
 
 if __name__ == '__main__':
     base = FlockBase()

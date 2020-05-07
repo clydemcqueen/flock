@@ -11,6 +11,11 @@ import numpy as np
 import tellopy
 import socket
 from cv_bridge import CvBridge
+import time
+from os.path import abspath, join
+from rospkg import RosPack
+
+PICTURE_FOLDER_BASE_PATH = abspath( join( RosPack().get_path('flock_driver'), '../drone_pics/' ) )
 
 # Use PyAV - many will have trouble installing so might not use
 USE_PyAV=False
@@ -34,6 +39,7 @@ class FlockDriver(object):
         rospy.Subscriber('takeoff', Empty, self.takeoff_callback)
         rospy.Subscriber('land', Empty, self.land_callback)
         rospy.Subscriber('flip', Flip, self.flip_callback)
+	rospy.Subscriber('take_pic', Empty, self.take_pic_callback)
 
         # ROS OpenCV bridge
         self._cv_bridge = CvBridge()
@@ -47,6 +53,8 @@ class FlockDriver(object):
         # Listen to flight data messages
         self._drone.subscribe(self._drone.EVENT_FLIGHT_DATA, self.flight_data_callback)
 
+	# Listent to take picture messages
+        self._drone.subscribe(self._drone.EVENT_FILE_RECEIVED, self.pic_received_callback)
 
         # Start video thread
 	if USE_PyAV:
@@ -64,6 +72,7 @@ class FlockDriver(object):
 	    video_thread = threading.Thread(None, self.cam) # Start thread
 	    video_thread.start()
 
+	#self.do_take_pic = False
 
         # Spin until interrupted
         rospy.spin()
@@ -184,6 +193,17 @@ class FlockDriver(object):
         elif msg.flip_command == Flip.flip_backright:
             self._drone.flip_backright()
 
+    def take_pic_callback(self, msg):
+	rospy.loginfo('Taking pic ..')
+	#self.do_take_pic = True
+	self._drone.take_picture()
+
+    def pic_received_callback(self, event, sender, data):
+	#path = os.path.abspath('../../')+'/drone_pics/tello_'+str(int(time.time()))+'.jpeg'
+	path = PICTURE_FOLDER_BASE_PATH + '/tello_'+str(int(time.time()))+'.jpeg'
+	with open(path, 'wb') as fd:
+	    fd.write(data)
+
 
     # for using PyAV    
     def video_worker(self):
@@ -216,6 +236,10 @@ class FlockDriver(object):
             while not self._stop_request.isSet():
                 res, frame = cap.read()
 		self._image_pub.publish(self._cv_bridge.cv2_to_imgmsg(frame, 'bgr8'))
+
+		#if self.do_take_pic:
+		     
+		#    self.do_take_pic = False
 
         except Exception as e:
 	    print(e)

@@ -1,2 +1,5 @@
 *.pyc
 .idea/
+*.swo
+*.swp
+drone_pics
