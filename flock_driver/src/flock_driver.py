@@ -42,6 +42,11 @@ class FlockDriver(object):
         self._drone = tellopy.Tello()
         self._drone.connect()
         self._drone.wait_for_connection(60.0)
+        rospy.loginfo('connected to drone')
+
+        # Listen to flight data messages
+        self._drone.subscribe(self._drone.EVENT_FLIGHT_DATA, self.flight_data_callback)
+
 
         # Start video thread
 	if USE_PyAV:
