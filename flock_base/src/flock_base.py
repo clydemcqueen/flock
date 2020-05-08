@@ -51,6 +51,8 @@ class FlockBase(object):
         self.joy_axis_trim_lr = _joy_axis_trim_lr
         self.joy_axis_trim_fb = _joy_axis_trim_fb
 	self.joy_take_pic = _joy_axis_right_trigger
+	self.joy_start_video = 5#_joy_button_right_bumper
+	self.joy_stop_video = 2#_joy_button_left_bumper
 
         # Trim axis commands
         self.trim_targets_lr = \
@@ -88,6 +90,8 @@ class FlockBase(object):
         self._land_pub = rospy.Publisher('land', Empty, queue_size=10)
         self._flip_pub = rospy.Publisher('flip', Flip, queue_size=10)
 	self._take_pic_pub = rospy.Publisher('take_pic', Empty, queue_size=10)
+	self._start_video_pub = rospy.Publisher('start_video', Empty, queue_size=10)
+	#self._stop_video_pub = rospy.Publisher('stop_video', Empty, queue_size=10)
 
         # Subscriptions
         rospy.Subscriber('joy', Joy, self.joy_callback)
@@ -145,6 +149,14 @@ class FlockBase(object):
 
 	if msg.buttons[self.joy_take_pic] != 0:
 	    self._take_pic_pub.publish()
+	elif msg.axes[self.joy_start_video] == -1:
+	    self._start_video_pub.publish()
+	# no good way of stopping it (that i know of)
+	#elif msg.axes[self.joy_stop_video] == -1:
+	#    self._stop_video_pub.publish()
+
 
 if __name__ == '__main__':
     base = FlockBase()
+
+
