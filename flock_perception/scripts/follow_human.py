@@ -1,25 +1,36 @@
 #!/usr/bin/env python
 
-import sys
-import numpy as np
+# TODO: 
+# listen to takeoff, land and turn on/off cmd_vel publishing appropriately
+# better controller for movement (move faster when farther away, slower when closer)
+# remember last turn direction, so will turn that way when 'turning to find human'
+# make sure only one human is spotted at a time
+
 import rospy
-from cv_bridge import CvBridge, CvBridgeError
-import cv2
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Twist, Vector3
-from time import sleep
 from std_msgs.msg import Empty
+from cv_bridge import CvBridge, CvBridgeError
+from vision_msgs.msg import Detection2DArray
+import message_filters
+
+import cv2
+import numpy as np
+import sys
+from time import sleep
 
 DO_DEBUG=True
 #
-IMAGE_TOPIC_SUB = 'semantic_color'
-DEBUG_IMAGE_TOPIC_PUB = 'debug_sem_centroid'
+OBJECTS_TOPIC_SUB = 'objects'
+HUMAN_ID = 1
+IMAGE_TOPIC_SUB = 'debug_image'
+DEBUG_IMAGE_TOPIC_PUB = 'debug_image_centroid'
 #
-NUM_ERODE_DILATIONS = 10
-#
-WIDTH_KEEPING_FOV = 60 # pixels
-DISTANCE_KEEP_AWAY = 200 # minEnclosingCircle radius
-DISTANCE_KEEPING_RANGE = 20 # minEnclosingCircle radius
+WIDTH_KEEPING_FOV = 200 # pixels
+HEIGHT_KEEPING_FOV = 100 # pixels
+DISTANCE_KEEP_AWAY = 600 # unit ? (from Detection2DArray) 
+DISTANCE_KEEPING_RANGE = 30 # minEnclosingCircle radius
+LONG_JIGGLE = 0.3
 
 class FollowHuman:
     def __init__(self):
@@ -27,68 +38,90 @@ class FollowHuman:
 
 	# Image
 	self.cv_bridge = CvBridge()
-        self.image_sub = rospy.Subscriber(IMAGE_TOPIC_SUB, Image, self.image_cb, queue_size=1)
-	self.debug_image_pub = rospy.Publisher(DEBUG_IMAGE_TOPIC_PUB, Image, queue_size=1)
+	if DO_DEBUG:
+	    self.image_sub = message_filters.Subscriber(IMAGE_TOPIC_SUB, Image)
+	    self.objects_sub = message_filters.Subscriber(OBJECTS_TOPIC_SUB, Detection2DArray)
+	    ts = message_filters.TimeSynchronizer([self.image_sub, self.objects_sub], 10)
+	    ts.registerCallback(self.image_and_object_cb)
+
+	    #self.image_sub = rospy.Subscriber(IMAGE_TOPIC_SUB, Image, self.img_cb, queue_size=10)
+
+	    self.debug_image_pub = rospy.Publisher(DEBUG_IMAGE_TOPIC_PUB, Image, queue_size=10)
+	else:
+	    self.objects_sub = rospy.Subscriber(OBJECTS_TOPIC_SUB, Detection2DArray, self.objects_cb, queue_size=1)
 
 	# Drone
         self._cmd_vel_pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
+	self.cmd = '' 
 
-
-    def image_cb(self, data):
-        img = self.cv_bridge.imgmsg_to_cv2(data)
-
-	i_height, i_width, _ = img.shape
-
-
-	img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-	img_gray = cv2.erode(img_gray, None, iterations=NUM_ERODE_DILATIONS)
-	img_gray = cv2.dilate(img_gray, None, iterations=NUM_ERODE_DILATIONS)
-	cnts = cv2.findContours(img_gray.copy(), cv2.RETR_EXTERNAL,
-                    cv2.CHAIN_APPROX_SIMPLE)[-2]
-	#print(len(cnts))
-
-	if len(cnts) > 0:
-	    c = max(cnts, key=cv2.contourArea)
-	    ((x, y), radius) = cv2.minEnclosingCircle(c)
-	    M = cv2.moments(c)
-	    center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
-	    X = int(x)
-	    Y = int(y)
-	    #print(radius)
-	    if radius > 10:
-
-		# move yaw to center human
-		if X < (i_width/2 - WIDTH_KEEPING_FOV):
-		    print('turn ccw')
-		    self.move(0,0,0.1)
-		elif X > (i_width/2 + WIDTH_KEEPING_FOV):
-		    print('turn cw')
-		    self.move(0,0,-0.1)
-		else: 
-		    # make sure drone is locked on when it moves towards or away
-		    if radius < (DISTANCE_KEEP_AWAY-DISTANCE_KEEPING_RANGE/2):
-		        print('move forward')
-		        self.move(0.1,0,0) 
-		    elif radius > (DISTANCE_KEEP_AWAY+DISTANCE_KEEPING_RANGE/2):
-		        print('move back')
-		        self.move(-0.1,0,0) 
-		    else:
-			self.move(0,0,0)
-			print('do nothing')
-
-		if DO_DEBUG:	
-	            font = cv2.FONT_HERSHEY_SIMPLEX
-	            cv2.putText(img,'Target Detected',(40,60), font, 0.5,(255,255,255),1,cv2.LINE_AA)
-		    cv2.rectangle(img,(int(x-radius),int(y+radius)),
-				  (int(x+radius),int(y-radius)),(255,255,255),1)
-		    cv2.rectangle(img,(int(x-5),int(y+5)),(int(x+5),int(y-5)),(255,255,255),1)
+    def image_and_object_cb(self, imgmsg, objects):
        
-	else: # no humans found
-	    self.move(0,0,0.2) # turn until you find a human
-	    print('turn to find human')
+	try: 
+            img = self.cv_bridge.imgmsg_to_cv2(imgmsg)
+	except CvBridgeError:
+	    rospy.logwarn('CvBridge could not convert to cv2')
+	    return
+	self.img_height, self.img_width, _ = img.shape
 
-	if DO_DEBUG:
-	     self.debug_image_pub.publish( self.cv_bridge.cv2_to_imgmsg(img, encoding='rgb8') )
+	#print(len(objects.detections))
+
+	if len(objects.detections) is 0:
+	    self.find_human()
+
+	else:
+	    for obj in objects.detections:
+	        if obj.results[0].id == HUMAN_ID:
+		    cx, cy = (obj.bbox.center.x*4/3, obj.bbox.center.y*3/4) #weird scaling
+		    #print cx, cy
+		    bound_width = obj.bbox.size_y		    
+
+		    # show center
+		    cv2.rectangle(img,(int(cx-5),int(cy+5)),(int(cx+5),int(cy-5)),(255,255,255),1)
+		    # show bound size
+		    cv2.putText(img, 'bound_width: '+str(bound_width), (40,660), 
+			cv2.FONT_HERSHEY_PLAIN, 2,(255,255,255),2,cv2.LINE_AA)
+
+		    self.follow_human(cx, cy, bound_width)	
+
+	# show bounds
+	cv2.rectangle(img, 
+		(self.img_width/2-WIDTH_KEEPING_FOV, self.img_height/2+HEIGHT_KEEPING_FOV),	
+		(self.img_width/2+WIDTH_KEEPING_FOV, self.img_height/2-HEIGHT_KEEPING_FOV),
+		(255,255,255),3)	
+	cv2.putText(img,self.cmd,(40,60), cv2.FONT_HERSHEY_PLAIN, 2,(255,255,255),2,cv2.LINE_AA)
+
+	try:
+	    imgmsg = self.cv_bridge.cv2_to_imgmsg(img, encoding='bgr8')
+	    self.debug_image_pub.publish(imgmsg)
+	except:
+	    rospy.logwarn('CvBridge could not convert to imgmsg')
+	    return
+		
+    def follow_human(self, cx, cy, bound_width):
+
+	# move yaw to center human
+	if cx < (self.img_width/2 - WIDTH_KEEPING_FOV):
+	    self.cmd = 'turn ccw'
+	    self.move(0,0,0.2)
+	elif cx > (self.img_width/2 + WIDTH_KEEPING_FOV):
+	    self.cmd = 'turn cw'
+	    self.move(0,0,-0.2)
+	else: # locked on, move towards or away from human
+	    if bound_width < (DISTANCE_KEEP_AWAY-DISTANCE_KEEPING_RANGE):
+	        self.cmd = 'move forward'
+		self.move(LONG_JIGGLE,0,0) 
+	    elif bound_width > (DISTANCE_KEEP_AWAY+DISTANCE_KEEPING_RANGE):
+	        self.cmd = 'move backward'
+		self.move(-LONG_JIGGLE,0,0) 
+	    else:
+	        self.cmd = 'do nothing'
+		self.move(0,0,0)
+	
+  
+    def find_human(self):
+	self.cmd = 'turn to find human'
+        self.move(0,0,0.2) # turn until you find a human
+
 
     def move(self, lx, lz, az):
 	twist = Twist()
