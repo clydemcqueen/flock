@@ -5,6 +5,7 @@
 # better controller for movement (move faster when farther away, slower when closer) use PID ./
 # remember last turn direction, so will turn that way when 'turning to find human' ./
 # add support for no debug aka just look at objects and don't do any image manip ./
+# add ability to turn on/off follow commands ./
 # make sure only one human is spotted at a time
 
 import rospy
@@ -26,13 +27,13 @@ DO_DEBUG=True
 OBJECTS_TOPIC_SUB = 'objects'
 HUMAN_ID = 1
 IMAGE_TOPIC_SUB = 'debug_image'
-DEBUG_IMAGE_TOPIC_PUB = 'debug_image_centroid'
+DEBUG_IMAGE_TOPIC_PUB = 'debug_image_follower'
 #
 WIDTH_KEEPING_FOV  = 200 # pixels
 HEIGHT_KEEPING_FOV = 100 # pixels
-DISTANCE_KEEP_AWAY = 600 # unit ? (from Detection2DArray) 
+DISTANCE_KEEP_AWAY = 650 # unit ? (from Detection2DArray) 
 DISTANCE_KEEPING_RANGE = 30 # unit ? (from Detection2DArray) 
-KP = 0.0025 # u/error i.e. 0.5/200
+KP = 0.00375 # u/error i.e. 0.5/200
 SLOW_TURN = 0.2
 FAST_TURN = 0.5
 
@@ -55,6 +56,7 @@ class FollowHuman:
 	# Drone
 	self._takeoff_sub = rospy.Subscriber('takeoff', Empty, self.takeoff_cb, queue_size=10)
 	self._land_sub = rospy.Subscriber('land', Empty, self.land_cb, queue_size=10)
+	self._follow_human_toggle_sub = rospy.Subscriber('follow_human_toggle', Empty, self.follow_human_toggle_cb, queue_size=10)
 	self.is_commandable = False # only publish commands when airborne
 	#
         self._cmd_vel_pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
@@ -62,16 +64,18 @@ class FollowHuman:
 	#
 	self.human_last_seen_dir = 'left'
 
-    def takeoff_cb(self):
+    def takeoff_cb(self,msg):
 	sleep(0.5)
 	self.is_commandable = True
-    def land_cb(self):
+    def land_cb(self,msg):
 	sleep(0.5)
 	self.is_commandable = False 
-
+    def follow_human_toggle_cb(self,msg):
+	self.is_commandable = not self.is_commandable
 
     def image_and_object_cb(self, imgmsg, objects): # used when debugging
 	if not self.is_commandable:
+	    self.debug_image_pub.publish(imgmsg)
 	    return      
 
 	try: 
@@ -155,7 +159,7 @@ class FollowHuman:
 	        self.cmd = 'move forward '+str(ucontrol)
 	    elif bound_width > (DISTANCE_KEEP_AWAY+DISTANCE_KEEPING_RANGE):
 		error = abs(bound_width - (DISTANCE_KEEP_AWAY+DISTANCE_KEEPING_RANGE))
-		ucontrol = self.KP * error	
+		ucontrol = KP * error	
 		lx = -ucontrol
 	        self.cmd = 'move backward '+str(ucontrol)
 	    else:
@@ -164,7 +168,7 @@ class FollowHuman:
 	self.move(lx,lz,az) 
  
     def find_human(self):
-	if self.human_last_seen_dir = 'left':
+	if self.human_last_seen_dir == 'left':
 	    self.cmd = 'turn left to find human'
             self.move(0,0,FAST_TURN) 
 	else:
