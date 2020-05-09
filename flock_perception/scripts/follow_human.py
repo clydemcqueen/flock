@@ -2,8 +2,8 @@
 
 # TODO: 
 # listen to takeoff, land and turn on/off cmd_vel publishing appropriately
-# better controller for movement (move faster when farther away, slower when closer)
-# remember last turn direction, so will turn that way when 'turning to find human'
+# better controller for movement (move faster when farther away, slower when closer) use PID ./
+# remember last turn direction, so will turn that way when 'turning to find human' ./
 # make sure only one human is spotted at a time
 
 import rospy
@@ -18,6 +18,7 @@ import cv2
 import numpy as np
 import sys
 from time import sleep
+from pid import PID # probs bloat for our use case, could get away with just [kp, error]
 
 DO_DEBUG=True
 #
@@ -29,8 +30,10 @@ DEBUG_IMAGE_TOPIC_PUB = 'debug_image_centroid'
 WIDTH_KEEPING_FOV = 200 # pixels
 HEIGHT_KEEPING_FOV = 100 # pixels
 DISTANCE_KEEP_AWAY = 600 # unit ? (from Detection2DArray) 
-DISTANCE_KEEPING_RANGE = 30 # minEnclosingCircle radius
-LONG_JIGGLE = 0.3
+DISTANCE_KEEPING_RANGE = 30 # unit ? (from Detection2DArray) 
+KP = 0.0025 # u/error i.e. 0.5/200
+SLOW_TURN = 0.2
+FAST_TURN = 0.5
 
 class FollowHuman:
     def __init__(self):
@@ -53,6 +56,8 @@ class FollowHuman:
 	# Drone
         self._cmd_vel_pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
 	self.cmd = '' 
+	#
+	self.human_last_seen_dir = 'left'
 
     def image_and_object_cb(self, imgmsg, objects):
        
@@ -99,28 +104,41 @@ class FollowHuman:
 		
     def follow_human(self, cx, cy, bound_width):
 
+	lx = lz = az = 0
+
 	# move yaw to center human
 	if cx < (self.img_width/2 - WIDTH_KEEPING_FOV):
+	    az = SLOW_TURN
 	    self.cmd = 'turn ccw'
-	    self.move(0,0,0.2)
+	    self.human_last_seen_dir = 'left'
 	elif cx > (self.img_width/2 + WIDTH_KEEPING_FOV):
+	    az = -SLOW_TURN
 	    self.cmd = 'turn cw'
-	    self.move(0,0,-0.2)
+	    self.human_last_seen_dir = 'right'
 	else: # locked on, move towards or away from human
 	    if bound_width < (DISTANCE_KEEP_AWAY-DISTANCE_KEEPING_RANGE):
-	        self.cmd = 'move forward'
-		self.move(LONG_JIGGLE,0,0) 
+		error = abs(bound_width - (DISTANCE_KEEP_AWAY-DISTANCE_KEEPING_RANGE))
+		ucontrol = KP * error	
+		lx = ucontrol
+	        self.cmd = 'move forward '+str(ucontrol)
 	    elif bound_width > (DISTANCE_KEEP_AWAY+DISTANCE_KEEPING_RANGE):
-	        self.cmd = 'move backward'
-		self.move(-LONG_JIGGLE,0,0) 
+		error = abs(bound_width - (DISTANCE_KEEP_AWAY+DISTANCE_KEEPING_RANGE))
+		ucontrol = self.KP * error	
+		lx = -ucontrol
+	        self.cmd = 'move backward '+str(ucontrol)
 	    else:
 	        self.cmd = 'do nothing'
-		self.move(0,0,0)
 	
-  
+	self.move(lx,lz,az) 
+ 
     def find_human(self):
-	self.cmd = 'turn to find human'
-        self.move(0,0,0.2) # turn until you find a human
+	if self.human_last_seen_dir = 'left':
+	    self.cmd = 'turn left to find human'
+            self.move(0,0,FAST_TURN) 
+	else:
+	    self.cmd = 'turn right to find human'
+            self.move(0,0,-FAST_TURN) 
+	
 
 
     def move(self, lx, lz, az):
