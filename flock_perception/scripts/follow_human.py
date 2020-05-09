@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
 # TODO: 
-# listen to takeoff, land and turn on/off cmd_vel publishing appropriately
+# listen to takeoff, land and turn on/off cmd_vel publishing appropriately ./
 # better controller for movement (move faster when farther away, slower when closer) use PID ./
 # remember last turn direction, so will turn that way when 'turning to find human' ./
+# add support for no debug aka just look at objects and don't do any image manip ./
 # make sure only one human is spotted at a time
 
 import rospy
@@ -27,7 +28,7 @@ HUMAN_ID = 1
 IMAGE_TOPIC_SUB = 'debug_image'
 DEBUG_IMAGE_TOPIC_PUB = 'debug_image_centroid'
 #
-WIDTH_KEEPING_FOV = 200 # pixels
+WIDTH_KEEPING_FOV  = 200 # pixels
 HEIGHT_KEEPING_FOV = 100 # pixels
 DISTANCE_KEEP_AWAY = 600 # unit ? (from Detection2DArray) 
 DISTANCE_KEEPING_RANGE = 30 # unit ? (from Detection2DArray) 
@@ -47,20 +48,32 @@ class FollowHuman:
 	    ts = message_filters.TimeSynchronizer([self.image_sub, self.objects_sub], 10)
 	    ts.registerCallback(self.image_and_object_cb)
 
-	    #self.image_sub = rospy.Subscriber(IMAGE_TOPIC_SUB, Image, self.img_cb, queue_size=10)
-
 	    self.debug_image_pub = rospy.Publisher(DEBUG_IMAGE_TOPIC_PUB, Image, queue_size=10)
 	else:
 	    self.objects_sub = rospy.Subscriber(OBJECTS_TOPIC_SUB, Detection2DArray, self.objects_cb, queue_size=1)
 
 	# Drone
+	self._takeoff_sub = rospy.Subscriber('takeoff', Empty, self.takeoff_cb, queue_size=10)
+	self._land_sub = rospy.Subscriber('land', Empty, self.land_cb, queue_size=10)
+	self.is_commandable = False # only publish commands when airborne
+	#
         self._cmd_vel_pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
 	self.cmd = '' 
 	#
 	self.human_last_seen_dir = 'left'
 
-    def image_and_object_cb(self, imgmsg, objects):
-       
+    def takeoff_cb(self):
+	sleep(0.5)
+	self.is_commandable = True
+    def land_cb(self):
+	sleep(0.5)
+	self.is_commandable = False 
+
+
+    def image_and_object_cb(self, imgmsg, objects): # used when debugging
+	if not self.is_commandable:
+	    return      
+
 	try: 
             img = self.cv_bridge.imgmsg_to_cv2(imgmsg)
 	except CvBridgeError:
@@ -70,23 +83,20 @@ class FollowHuman:
 
 	#print(len(objects.detections))
 
-	if len(objects.detections) is 0:
+	human = self.get_human_obj(objects)
+	if human is None:
 	    self.find_human()
 
 	else:
-	    for obj in objects.detections:
-	        if obj.results[0].id == HUMAN_ID:
-		    cx, cy = (obj.bbox.center.x*4/3, obj.bbox.center.y*3/4) #weird scaling
-		    #print cx, cy
-		    bound_width = obj.bbox.size_y		    
+	    cx, cy, bound_width = self.get_object_attrs(human)
 
-		    # show center
-		    cv2.rectangle(img,(int(cx-5),int(cy+5)),(int(cx+5),int(cy-5)),(255,255,255),1)
-		    # show bound size
-		    cv2.putText(img, 'bound_width: '+str(bound_width), (40,660), 
-			cv2.FONT_HERSHEY_PLAIN, 2,(255,255,255),2,cv2.LINE_AA)
+	    # show center
+	    cv2.rectangle(img,(int(cx-5),int(cy+5)),(int(cx+5),int(cy-5)),(255,255,255),1)
+	    # show bound size
+	    cv2.putText(img, 'bound_width: '+str(bound_width), (40,660), 
+		cv2.FONT_HERSHEY_PLAIN, 2,(255,255,255),2,cv2.LINE_AA)
 
-		    self.follow_human(cx, cy, bound_width)	
+	    self.follow_human(cx, cy, bound_width)	
 
 	# show bounds
 	cv2.rectangle(img, 
@@ -101,9 +111,31 @@ class FollowHuman:
 	except:
 	    rospy.logwarn('CvBridge could not convert to imgmsg')
 	    return
-		
-    def follow_human(self, cx, cy, bound_width):
+	
+    def objects_cb(self, objects):
+	if not self.is_commandable:
+	    return      
 
+	human = self.get_human_obj(objects)
+	if human is None:
+	    self.find_human()
+	else:
+            cx, cy, bound_width = self.get_object_attrs(human)
+	    self.follow_human(cx, cy, bound_width)	
+
+    def get_human_obj(self, objects):
+	for obj in objects.detections:
+	    if obj.results[0].id == HUMAN_ID:
+	    	return obj
+	return None 
+    def get_object_attrs(self, obj):
+	cx, cy = (obj.bbox.center.x*4/3, obj.bbox.center.y*3/4) #weird scaling
+	#print cx, cy
+	bound_width = obj.bbox.size_y		    
+	return cx, cy, bound_width
+
+	
+    def follow_human(self, cx, cy, bound_width):
 	lx = lz = az = 0
 
 	# move yaw to center human
