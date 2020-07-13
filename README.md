@@ -7,9 +7,11 @@
 
 ### Follow-me behavior
 `python flock_perception/scripts/follow_human/follow_human.py`
+![](./flock_perception/media/drone_follow_demo.png)
 
 ### Emotion detector 
 `python flock_perception/scripts/emotion_detection/main.py`
+![](./flock_perception/media/drone_emotion.png)
 
 
 -------------------------
