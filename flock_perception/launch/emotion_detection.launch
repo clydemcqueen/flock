@@ -1,0 +1,5 @@
+<launch>
+
+  <node name="emotion_detection" pkg="flock_perception" type="emotion_detector.py" output="screen" />
+
+</launch>

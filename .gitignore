@@ -1,2 +1,10 @@
 *.pyc
 .idea/
+*.swo
+*.swp
+*.swn
+drone_pics
+*.bag
+*.prof
+*.mp3
+*.mp4

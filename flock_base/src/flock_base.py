@@ -50,6 +50,10 @@ class FlockBase(object):
         self.joy_button_left_bumper = _joy_button_left_bumper
         self.joy_axis_trim_lr = _joy_axis_trim_lr
         self.joy_axis_trim_fb = _joy_axis_trim_fb
+	self.joy_take_pic = _joy_axis_right_trigger
+	self.joy_start_video = 5#_joy_button_right_bumper
+	#self.joy_stop_video = 2#_joy_button_left_bumper
+	self.joy_toggle_human_follow = 2#_joy_button_left_bumper
 
         # Trim axis commands
         self.trim_targets_lr = \
@@ -86,6 +90,10 @@ class FlockBase(object):
         self._takeoff_pub = rospy.Publisher('takeoff', Empty, queue_size=10)
         self._land_pub = rospy.Publisher('land', Empty, queue_size=10)
         self._flip_pub = rospy.Publisher('flip', Flip, queue_size=10)
+	self._take_pic_pub = rospy.Publisher('take_pic', Empty, queue_size=10)
+	self._start_video_pub = rospy.Publisher('start_video', Empty, queue_size=10)
+	#self._stop_video_pub = rospy.Publisher('stop_video', Empty, queue_size=10)
+	self._toggle_human_follower_pub = rospy.Publisher('follow_human_toggle', Empty, queue_size=10)
 
         # Subscriptions
         rospy.Subscriber('joy', Joy, self.joy_callback)
@@ -127,11 +135,13 @@ class FlockBase(object):
 
         self._cmd_vel_pub.publish(twist)
 
+	# takeoff / land
         if msg.buttons[self.joy_button_takeoff] != 0:
             self._takeoff_pub.publish()
         elif msg.buttons[self.joy_button_land] != 0:
             self._land_pub.publish()
 
+	# flips
         if msg.buttons[self.joy_button_flip_forward] != 0:
             self._flip_pub.publish(Flip(flip_command=Flip.flip_forward))
         elif msg.buttons[self.joy_button_flip_left] != 0:
@@ -141,6 +151,21 @@ class FlockBase(object):
         elif msg.buttons[self.joy_button_flip_back] != 0:
             self._flip_pub.publish(Flip(flip_command=Flip.flip_back))
 
+	# video / pic
+	if msg.buttons[self.joy_take_pic] != 0:
+	    self._take_pic_pub.publish()
+	elif msg.axes[self.joy_start_video] == -1:
+	    self._start_video_pub.publish()
+	# no good way of stopping it (that i know of)
+	#elif msg.axes[self.joy_stop_video] == -1:
+	#    self._stop_video_pub.publish()
+
+	# following
+	if msg.axes[self.joy_toggle_human_follow] == -1:
+	    self._toggle_human_follower_pub.publish()
+
 
 if __name__ == '__main__':
     base = FlockBase()
+
+

@@ -1,0 +1,10 @@
+<launch>
+
+  <!-- Start teleop  -->
+  <include file="$(find flock_base)/launch/teleop.launch" />
+
+  <node name="human_sem_seg" pkg="semantic_segmentation" type="segmentation_node_humans.py" output="screen" />
+
+  <node name="follow_human" pkg="flock_perception" type="follow_human.py" output="screen" />
+
+</launch>

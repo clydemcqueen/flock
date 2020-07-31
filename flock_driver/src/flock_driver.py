@@ -6,11 +6,22 @@ from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Image
 from std_msgs.msg import Empty
 from flock_msgs.msg import Flip, FlightData
-import av
 import cv2
-import numpy
+import numpy as np
 import tellopy
+import socket
 from cv_bridge import CvBridge
+import time
+from os.path import abspath, join
+from rospkg import RosPack
+
+PICTURE_FOLDER_BASE_PATH = abspath( join( RosPack().get_path('flock_driver'), '../drone_pics/' ) )
+
+# Use PyAV - many will have trouble installing so might not use
+USE_PyAV=False
+if USE_PyAV:
+    import av
+
 
 
 class FlockDriver(object):
@@ -28,6 +39,10 @@ class FlockDriver(object):
         rospy.Subscriber('takeoff', Empty, self.takeoff_callback)
         rospy.Subscriber('land', Empty, self.land_callback)
         rospy.Subscriber('flip', Flip, self.flip_callback)
+	#
+	rospy.Subscriber('take_pic', Empty, self.take_pic_callback)
+	rospy.Subscriber('start_video', Empty, self.start_video_callback)
+	rospy.Subscriber('stop_video', Empty, self.stop_video_callback)
 
         # ROS OpenCV bridge
         self._cv_bridge = CvBridge()
@@ -41,10 +56,11 @@ class FlockDriver(object):
         # Listen to flight data messages
         self._drone.subscribe(self._drone.EVENT_FLIGHT_DATA, self.flight_data_callback)
 
+	# Listent to take picture messages
+        self._drone.subscribe(self._drone.EVENT_FILE_RECEIVED, self.pic_received_callback)
+
         # Start video thread
-        self._stop_request = threading.Event()
-        video_thread = threading.Thread(target=self.video_worker)
-        video_thread.start()
+	#self.start_video()
 
         # Spin until interrupted
         rospy.spin()
@@ -53,8 +69,7 @@ class FlockDriver(object):
         self._drone.land()
 
         # Stop the video thread
-        self._stop_request.set()
-        video_thread.join(timeout=2)
+	self.stop_video()
 
         # Shut down the drone
         self._drone.quit()
@@ -165,6 +180,55 @@ class FlockDriver(object):
         elif msg.flip_command == Flip.flip_backright:
             self._drone.flip_backright()
 
+
+    ### Picture Functions
+
+    # run when button pressed
+    def take_pic_callback(self, msg):
+	rospy.loginfo('Taking pic ..')
+	self._drone.take_picture()
+
+    # run when drone says pic is ready
+    def pic_received_callback(self, event, sender, data):
+	#path = os.path.abspath('../../')+'/drone_pics/tello_'+str(int(time.time()))+'.jpeg'
+	path = PICTURE_FOLDER_BASE_PATH + '/tello_'+str(int(time.time()))+'.jpeg'
+	with open(path, 'wb') as fd:
+	    fd.write(data)
+
+
+    ### Video Functions
+
+    def start_video(self):
+	rospy.loginfo('Starting Video - driver')
+	if USE_PyAV:
+            self._stop_request = threading.Event()
+            self.video_thread = threading.Thread(target=self.video_worker)
+            self.video_thread.start()
+
+	else:
+    	    self.loopback = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+	    self._drone.start_video()
+	    self._drone.subscribe(self._drone.EVENT_VIDEO_FRAME, self.videoFrameHandler)
+
+            self._stop_request = threading.Event()
+	    self.video_thread = threading.Thread(None, self.cam) # Start thread
+	    self.video_thread.start()
+
+    def stop_video(self):
+	rospy.loginfo('Stopping Video - driver')
+        self._stop_request.set()
+        self.video_thread.join(timeout=2)
+
+    def start_video_callback(self, msg):
+	self.start_video()
+    def stop_video_callback(self, msg):
+	#self.stop_video()
+	# no good way to stop video at the moment
+	pass
+
+
+    # for using PyAV    
     def video_worker(self):
         # Get video stream, open in PyAV
         container = av.open(self._drone.get_video_stream())
@@ -174,7 +238,7 @@ class FlockDriver(object):
         for frame in container.decode(video=0):
 
             # Convert PyAV frame => PIL image => OpenCV Mat
-            color_mat = cv2.cvtColor(numpy.array(frame.to_image()), cv2.COLOR_RGB2BGR)
+            color_mat = cv2.cvtColor(np.array(frame.to_image()), cv2.COLOR_RGB2BGR)
 
             # Convert OpenCV Mat => ROS Image message and publish
             self._image_pub.publish(self._cv_bridge.cv2_to_imgmsg(color_mat, 'bgr8'))
@@ -184,5 +248,29 @@ class FlockDriver(object):
                 return
 
 
+    def cam(self): # RUN THE WHILE LOOP AS FAST AS POSSIBLE!
+    ##           VIDEO DISTORTION OTHERWISE! 
+        try:
+            cap = cv2.VideoCapture("udp://@127.0.0.1:5000") # Random address
+            if not cap.isOpened:
+                cap.open()
+
+            while not self._stop_request.isSet():
+                res, frame = cap.read()
+		self._image_pub.publish(self._cv_bridge.cv2_to_imgmsg(frame, 'bgr8'))
+
+        except Exception as e:
+	    print(e)
+        finally:
+            cap.release()
+            print("Video Stream stopped.")
+
+    def videoFrameHandler(self, event, sender, data):
+	self.loopback.sendto(data, ('127.0.0.1', 5000)) # random address
+
+
 if __name__ == '__main__':
     driver = FlockDriver()
+
+
+
