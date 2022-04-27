@@ -2,6 +2,8 @@
 
 Flock is a ROS driver for [DJI Tello](https://store.dji.com/product/tello) drones.
 
+## Support for Windows, tf2, ROS Noetic, Python3.
+
 ## Packages
 
 * `flock` meta-package glue
@@ -50,7 +52,7 @@ ffmpeg -version
 
 ### 2. Set up your Python environment
 
-Use your favorite Python package manager to set up Python 2.7 and the following packages:
+Use your favorite Python package manager to set up Python 3 and the following packages:
 
 * numpy 1.15.2
 * av 0.5.2
@@ -60,19 +62,19 @@ Use your favorite Python package manager to set up Python 2.7 and the following 
 
 ### 3. Install ROS
 
-[Install ROS Melodic](http://wiki.ros.org/Installation/Ubuntu) with the `ros-melodic-desktop-full` option.
+[Install ROS noetic](http://wiki.ros.org/Installation/Ubuntu) with the `ros-noetic-desktop-full` option.
 This will install Gazebo 9 and OpenCV 3.2, among other things.
 
 Install these additional packages:
 ~~~
-sudo apt install ros-melodic-joystick-drivers
+sudo apt install ros-noetic-joystick-drivers
 ~~~
 
 ### 4. Get Flock
 
 Create a catkin workspace:
 ~~~
-source /opt/ros/melodic/setup.bash
+source /opt/ros/noetic/setup.bash
 mkdir -p ~/flock_catkin_ws/src
 cd ~/flock_catkin_ws/
 catkin_make
