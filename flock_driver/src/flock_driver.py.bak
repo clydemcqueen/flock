@@ -171,7 +171,7 @@ class FlockDriver(object):
 
         # Decode h264
         rospy.loginfo('starting video pipeline')
-        for frame in container.decode():
+        for frame in container.decode(video=0):
 
             # Convert PyAV frame => PIL image => OpenCV Mat
             color_mat = cv2.cvtColor(numpy.array(frame.to_image()), cv2.COLOR_RGB2BGR)

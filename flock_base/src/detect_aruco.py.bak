@@ -7,8 +7,8 @@ from std_msgs.msg import ColorRGBA
 from visualization_msgs.msg import Marker, MarkerArray
 import cv2
 from cv_bridge import CvBridge
-import tf2_ros
-import tf_transformations as tft
+import tf
+import tf.transformations as tft
 import numpy as np
 
 # Transformation notation:
@@ -27,12 +27,7 @@ def rvec_and_tvec_to_matrix(rvec, tvec):
 
 def tf_to_matrix(ros_transform):
     """ROS transform to 4x4 matrix"""
-    t = ros_transform.transform.translation
-    t = [t.x, t.y, t.z]
-
-    q = ros_transform.transform.rotation
-    q = [q.x, q.y, q.z, q.w]
-    
+    t, q = ros_transform
     t_matrix = tft.translation_matrix(t)
     r_matrix = tft.quaternion_matrix(q)
     return np.dot(t_matrix, r_matrix)
@@ -95,15 +90,12 @@ class DetectArUco(object):
         self._cv_bridge = CvBridge()
 
         # ROS transform managers
-        # tfBuffer = tf2_ros.Buffer()
-        
-        self.tf_bufferr = tf2_ros.Buffer()
-        self.tf_listenerr = tf2_ros.TransformListener(self.tf_bufferr)
-        self.tf_broadcasterr = tf2_ros.TransformBroadcaster()
+        self._tf_listener = tf.TransformListener()
+        self._tf_broadcaster = tf.TransformBroadcaster()
 
         # Get base_link => camera_frame transform
-        self.tf_bufferr.can_transform("base_link", "camera_frame", rospy.Time(), rospy.Duration(4))
-        self._Tcb = tf_to_matrix(self.tf_listenerr.buffer.lookup_transform("base_link", "camera_frame", rospy.Time()))
+        self._tf_listener.waitForTransform("base_link", "camera_frame", rospy.Time(), rospy.Duration(4))
+        self._Tcb = tf_to_matrix(self._tf_listener.lookupTransform("base_link", "camera_frame", rospy.Time()))
 
         # Now that we're initialized, set up subscriptions and spin
         rospy.Subscriber("image_raw", Image, self.image_callback)
@@ -159,7 +151,7 @@ class DetectArUco(object):
                 # Instead, invert Tob to get Tbo
                 Tbo = tft.inverse_matrix(Tob)
                 t, q = matrix_to_tf(Tbo)
-                self.tf_broadcasterr.sendTransform(t, q, rospy.Time.now(), child='base_link', parent='odom')
+                self._tf_broadcaster.sendTransform(t, q, rospy.Time.now(), child='base_link', parent='odom')
                 break
 
         # Compute the pose of the other markers, and publish a MarkerArray message for display in rviz
